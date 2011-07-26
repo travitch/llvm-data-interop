@@ -1620,7 +1620,8 @@ static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb) {
 
   v->valueTag = VAL_BASICBLOCK;
   v->valueType = translateType(m, bb->getType());
-  v->name = strdup(bb->getNameStr().c_str());
+  if(bb->hasName())
+    v->name = strdup(bb->getNameStr().c_str());
 
   // No metadata for these
 
