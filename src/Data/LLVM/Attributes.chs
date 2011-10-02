@@ -19,6 +19,7 @@ module Data.LLVM.Attributes (
 #include "c++/marshal.h"
 
 import Control.DeepSeq
+import Data.Default
 import Data.ByteString.Char8 ( ByteString, unpack )
 
 {#enum LinkageType {} deriving (Eq) #}
@@ -41,7 +42,8 @@ instance Show LinkageType where
   show LTCommon = "common"
 
 instance NFData LinkageType
-
+instance Default LinkageType where
+  def = LTExternal
 
 {#enum VisibilityStyle {} deriving (Eq) #}
 
@@ -51,7 +53,8 @@ instance Show VisibilityStyle where
   show VisibilityProtected = "protected"
 
 instance NFData VisibilityStyle
-
+instance Default VisibilityStyle where
+  def = VisibilityDefault
 
 {#enum ArithFlags {} deriving (Eq) #}
 
@@ -62,7 +65,8 @@ instance Show ArithFlags where
   show ArithBoth = "nuw nsw"
 
 instance NFData ArithFlags
-
+instance Default ArithFlags where
+  def = ArithNone
 
 
 {#enum CmpPredicate {underscoreToCase} deriving (Eq) #}
@@ -117,7 +121,8 @@ instance Show CallingConvention where
   show CC_MBLAZE_SVOL = "cc 74"
 
 instance NFData CallingConvention
-
+instance Default CallingConvention where
+  def = CC_C
 
  -- Representing Assembly
 data Assembly = Assembly !ByteString
