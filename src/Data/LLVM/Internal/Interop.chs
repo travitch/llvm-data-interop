@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, RankNTypes, OverloadedStrings #-}
-module Data.LLVM.Interop where
+module Data.LLVM.Internal.Interop where
 
 import Control.Applicative
 import Control.Monad ( when )
@@ -15,9 +15,7 @@ import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 
-import Data.LLVM.Attributes
-import Data.LLVM.Dwarf
-import Data.LLVM.Identifiers
+import Data.LLVM.Types
 
 #include "c++/marshal.h"
 

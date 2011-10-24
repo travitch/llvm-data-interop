@@ -6,7 +6,7 @@ license-file: LICENSE
 author: Tristan Ravitch
 maintainer: travitch@cs.wisc.edu
 category: Data
-build-type: Configure
+build-type: Custom
 cabal-version: >=1.10
 
 -- A longer description of the package.
@@ -20,16 +20,16 @@ extra-source-files: configure,
 
 library
   default-language: Haskell2010
-  build-depends: base > 3 && < 5, array, bytestring, data-default >= 0.3,
-                 dwarf, deepseq, mtl > 2, hashable >= 1.1.2.0
-  exposed-modules: Data.LLVM.Interop,
-                   Data.LLVM.Dwarf,
-                   Data.LLVM.Identifiers,
-                   Data.LLVM.Attributes
+  build-depends: base > 3 && < 5, array, bytestring, data-default >= 0.3, containers,
+                 dwarf, deepseq, mtl > 2, hashable >= 1.1.2.0, llvm-base-types
+  other-modules: Data.LLVM.Internal.Interop
+  exposed-modules: Data.LLVM.ParseBitcode
   build-tools: c2hs
   c-sources: src/c++/marshal.cpp
+  extra-libraries: stdc++
   ghc-options: -Wall
   ghc-prof-options: -auto-all
   include-dirs: src
   hs-source-dirs: src
+  cc-options: -fvisibility-inlines-hidden -fvisibility=hidden -fno-weak
 
