@@ -4,8 +4,7 @@ module Data.LLVM.Internal.Interop where
 import Control.Applicative
 import Control.Monad ( when )
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Data.Array.Storable ( getElems )
-import Data.Array.Unsafe ( unsafeForeignPtrToStorableArray )
+import Data.Array.Storable ( getElems, unsafeForeignPtrToStorableArray )
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Int
