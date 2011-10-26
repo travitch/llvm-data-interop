@@ -1,0 +1,6 @@
+/dist
+/cabal-dev
+/autom4te.cache
+config.log
+config.status
+llvm.buildinfo
