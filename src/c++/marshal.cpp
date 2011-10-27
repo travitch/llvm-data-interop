@@ -886,7 +886,7 @@ static CType* translateType(CModule *m, const Type *t) {
 
   case TYPE_FUNCTION:
   {
-    const FunctionType *ft = dynamic_cast<const FunctionType*>(t);
+    const FunctionType *ft = dyn_cast<const FunctionType>(t);
     nt->isVarArg = ft->isVarArg();
     nt->innerType = translateType(m, ft->getReturnType());
     nt->typeListLen = ft->getNumParams();
@@ -900,7 +900,7 @@ static CType* translateType(CModule *m, const Type *t) {
 
   case TYPE_STRUCT:
   {
-    const StructType *st = dynamic_cast<const StructType*>(t);
+    const StructType *st = dyn_cast<const StructType>(t);
     nt->isPacked = st->isPacked();
     nt->typeListLen = st->getNumElements();
     nt->typeList = (CType**)calloc(nt->typeListLen, sizeof(CType*));
@@ -912,7 +912,7 @@ static CType* translateType(CModule *m, const Type *t) {
 
   case TYPE_ARRAY:
   {
-    const ArrayType *at = dynamic_cast<const ArrayType*>(t);
+    const ArrayType *at = dyn_cast<const ArrayType>(t);
     nt->size = at->getNumElements();
     nt->innerType = translateType(m, at->getElementType());
     break;
@@ -920,7 +920,7 @@ static CType* translateType(CModule *m, const Type *t) {
 
   case TYPE_POINTER:
   {
-    const PointerType *pt = dynamic_cast<const PointerType*>(t);
+    const PointerType *pt = dyn_cast<const PointerType>(t);
     nt->innerType = translateType(m, pt->getElementType());
     nt->addrSpace = pt->getAddressSpace();
     break;
@@ -928,7 +928,7 @@ static CType* translateType(CModule *m, const Type *t) {
 
   case TYPE_VECTOR:
   {
-    const VectorType *vt = dynamic_cast<const VectorType*>(t);
+    const VectorType *vt = dyn_cast<const VectorType>(t);
     nt->size = vt->getNumElements();
     nt->innerType = translateType(m, vt->getElementType());
     break;
@@ -1029,7 +1029,7 @@ static void buildSimpleInst(CModule *m, CValue *v, ValueTag t, const Instruction
 }
 
 static void buildBinaryInst(CModule *m, CValue *v, ValueTag t, const Instruction *inst) {
-  const BinaryOperator *bi = dynamic_cast<const BinaryOperator*>(inst);
+  const BinaryOperator *bi = dyn_cast<const BinaryOperator>(inst);
   assert(bi);
 
   v->valueTag = t;
@@ -1087,18 +1087,18 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
 //  if(const DbgDeclareInst *di = dynamic_cast<const DbgDeclareInst*>(ii)) {
   if(ii->getCalledValue()->getNameStr() == "llvm.dbg.declare") {
     CValue *addr = NULL;
-    if(const MDNode *addrWrapper = dynamic_cast<const MDNode*>(ii->getArgOperand(0))) {
+    if(const MDNode *addrWrapper = dyn_cast<const MDNode>(ii->getArgOperand(0))) {
       const Value* realAddr = addrWrapper->getOperand(0);
       // If the alloca was completely eliminated, this debug
       // information can't be attached to anything as far as I can
       // tell.
-      if(realAddr == NULL || dynamic_cast<const ConstantPointerNull*>(realAddr))
+      if(realAddr == NULL || dyn_cast<const ConstantPointerNull>(realAddr))
         return false;
 
       addr = translateValue(m, realAddr);
     }
     CMeta *md = NULL;
-    if(const MDNode *variableVal = dynamic_cast<const MDNode*>(ii->getArgOperand(1))) {
+    if(const MDNode *variableVal = dyn_cast<const MDNode>(ii->getArgOperand(1))) {
       md = translateMetadata(m, variableVal);
     }
 
@@ -1134,9 +1134,9 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
     // good use case.
 
     CValue *val = NULL;
-    if(const MDNode *valWrapper = dynamic_cast<const MDNode*>(ii->getArgOperand(0))) {
+    if(const MDNode *valWrapper = dyn_cast<const MDNode>(ii->getArgOperand(0))) {
       const Value *realAddr = valWrapper->getOperand(0);
-      if(realAddr == NULL || dynamic_cast<const ConstantPointerNull*>(realAddr))
+      if(realAddr == NULL || dyn_cast<const ConstantPointerNull>(realAddr))
         return false;
 
       val = translateValue(m, realAddr);
@@ -1145,7 +1145,7 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
 
     if(val->numMetadata == 0) {
       CMeta *md = NULL;
-      if(const MDNode *variable = dynamic_cast<const MDNode*>(ii->getArgOperand(2))) {
+      if(const MDNode *variable = dyn_cast<const MDNode>(ii->getArgOperand(2))) {
         md = translateMetadata(m, variable);
       }
 
@@ -1262,7 +1262,7 @@ static void buildGEPInst(CModule *m, CValue *v, const GetElementPtrInst *gi) {
 }
 
 static void buildCastInst(CModule *m, CValue *v, ValueTag t, const Instruction *inst) {
-  const CastInst *ci = dynamic_cast<const CastInst*>(inst);
+  const CastInst *ci = dyn_cast<const CastInst>(inst);
   v->valueTag = t;
   v->valueType = translateType(m, ci->getType());
   if(ci->hasName())
@@ -1280,7 +1280,7 @@ static void buildCastInst(CModule *m, CValue *v, ValueTag t, const Instruction *
 }
 
 static void buildCmpInst(CModule *m, CValue *v, ValueTag t, const Instruction *inst) {
-  const CmpInst *ci = dynamic_cast<const CmpInst*>(inst);
+  const CmpInst *ci = dyn_cast<const CmpInst>(inst);
   v->valueTag = t;
   v->valueType = translateType(m, ci->getType());
   if(ci->hasName())
@@ -1402,7 +1402,7 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
   switch(i->getOpcode()) {
     // Terminator instructions
   case Instruction::Ret:
-    buildRetInst(m, v, dynamic_cast<const ReturnInst*>(i));
+    buildRetInst(m, v, dyn_cast<const ReturnInst>(i));
     break;
   case Instruction::Br:
     buildSimpleInst(m, v, VAL_BRANCHINST, i);
@@ -1414,7 +1414,7 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     buildSimpleInst(m, v, VAL_INDIRECTBRINST, i);
     break;
   case Instruction::Invoke:
-    buildInvokeInst(m, v, dynamic_cast<const InvokeInst*>(i));
+    buildInvokeInst(m, v, dyn_cast<const InvokeInst>(i));
     break;
   case Instruction::Unwind:
     buildSimpleInst(m, v, VAL_UNWINDINST, i);
@@ -1481,19 +1481,19 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
 
     // Memory operations
   case Instruction::Alloca:
-    buildAllocaInst(m, v, dynamic_cast<const AllocaInst*>(i));
+    buildAllocaInst(m, v, dyn_cast<const AllocaInst>(i));
     break;
 
   case Instruction::Load:
-    buildLoadInst(m, v, dynamic_cast<const LoadInst*>(i));
+    buildLoadInst(m, v, dyn_cast<const LoadInst>(i));
     break;
 
   case Instruction::Store:
-    buildStoreInst(m, v, dynamic_cast<const StoreInst*>(i));
+    buildStoreInst(m, v, dyn_cast<const StoreInst>(i));
     break;
 
   case Instruction::GetElementPtr:
-    buildGEPInst(m, v, dynamic_cast<const GetElementPtrInst*>(i));
+    buildGEPInst(m, v, dyn_cast<const GetElementPtrInst>(i));
     break;
 
     // Casts
@@ -1555,7 +1555,7 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     break;
 
   case Instruction::PHI:
-    buildPHINode(m, v, dynamic_cast<const PHINode*>(i));
+    buildPHINode(m, v, dyn_cast<const PHINode>(i));
     break;
 
   case Instruction::Call:
@@ -1563,7 +1563,7 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     // made so far.  We don't want these in the instruction stream
     // (the builder will attach the debug information to the relevant
     // entities)
-    if(!buildCallInst(m, v, dynamic_cast<const CallInst*>(i))) {
+    if(!buildCallInst(m, v, dyn_cast<const CallInst>(i))) {
       pd->valueMap.erase(i);
       free(v);
       return NULL;
@@ -1575,7 +1575,7 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     break;
 
   case Instruction::VAArg:
-    buildVAArgInst(m, v, dynamic_cast<const VAArgInst*>(i));
+    buildVAArgInst(m, v, dyn_cast<const VAArgInst>(i));
     break;
 
   case Instruction::ExtractElement:
@@ -1591,11 +1591,11 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     break;
 
   case Instruction::ExtractValue:
-    buildExtractValueInst(m, v, dynamic_cast<const ExtractValueInst*>(i));
+    buildExtractValueInst(m, v, dyn_cast<const ExtractValueInst>(i));
     break;
 
   case Instruction::InsertValue:
-    buildInsertValueInst(m, v, dynamic_cast<const InsertValueInst*>(i));
+    buildInsertValueInst(m, v, dyn_cast<const InsertValueInst>(i));
     break;
 
   default:
@@ -1749,15 +1749,15 @@ static CValue* translateInlineAsm(CModule *m, const InlineAsm* a) {
 }
 
 static CValue* translateGlobalValue(CModule *m, const GlobalValue *gv) {
-  if(const Function *f = dynamic_cast<const Function*>(gv)) {
+  if(const Function *f = dyn_cast<const Function>(gv)) {
     return translateFunction(m, f);
   }
 
-  if(const GlobalVariable *v = dynamic_cast<const GlobalVariable*>(gv)) {
+  if(const GlobalVariable *v = dyn_cast<const GlobalVariable>(gv)) {
     return translateGlobalVariable(m, v);
   }
 
-  if(const GlobalAlias *a = dynamic_cast<const GlobalAlias*>(gv)) {
+  if(const GlobalAlias *a = dyn_cast<const GlobalAlias>(gv)) {
     return translateGlobalAlias(m, a);
   }
 
@@ -1907,47 +1907,47 @@ static CValue* translateConstant(CModule *m, const Constant *c) {
     return it->second;
 
   // Order these in order of frequency
-  if(const ConstantInt *ci = dynamic_cast<const ConstantInt*>(c)) {
+  if(const ConstantInt *ci = dyn_cast<const ConstantInt>(c)) {
     return translateConstantInt(m, ci);
   }
 
-  if(const ConstantPointerNull *pn = dynamic_cast<const ConstantPointerNull*>(c)) {
+  if(const ConstantPointerNull *pn = dyn_cast<const ConstantPointerNull>(c)) {
     return translateEmptyConstant(m, VAL_CONSTANTPOINTERNULL, pn);
   }
 
-  if(const ConstantExpr *ce = dynamic_cast<const ConstantExpr*>(c)) {
+  if(const ConstantExpr *ce = dyn_cast<const ConstantExpr>(c)) {
     return translateConstantExpr(m, ce);
   }
 
-  if(const GlobalValue *gv = dynamic_cast<const GlobalValue*>(c)) {
+  if(const GlobalValue *gv = dyn_cast<const GlobalValue>(c)) {
     return translateGlobalValue(m, gv);
   }
 
-  if(const ConstantArray *ca = dynamic_cast<const ConstantArray*>(c)) {
+  if(const ConstantArray *ca = dyn_cast<const ConstantArray>(c)) {
     return translateConstantAggregate(m, VAL_CONSTANTARRAY, ca);
   }
 
-  if(const ConstantVector *cv = dynamic_cast<const ConstantVector*>(c)) {
+  if(const ConstantVector *cv = dyn_cast<const ConstantVector>(c)) {
     return translateConstantAggregate(m, VAL_CONSTANTVECTOR, cv);
   }
 
-  if(const ConstantStruct *cs = dynamic_cast<const ConstantStruct*>(c)) {
+  if(const ConstantStruct *cs = dyn_cast<const ConstantStruct>(c)) {
     return translateConstantAggregate(m, VAL_CONSTANTSTRUCT, cs);
   }
 
-  if(const ConstantFP *fp = dynamic_cast<const ConstantFP*>(c)) {
+  if(const ConstantFP *fp = dyn_cast<const ConstantFP>(c)) {
     return translateConstantFP(m, fp);
   }
 
-  if(const ConstantAggregateZero *az = dynamic_cast<const ConstantAggregateZero*>(c)) {
+  if(const ConstantAggregateZero *az = dyn_cast<const ConstantAggregateZero>(c)) {
     return translateEmptyConstant(m, VAL_CONSTANTAGGREGATEZERO, az);
   }
 
-  if(const UndefValue *uv = dynamic_cast<const UndefValue*>(c)) {
+  if(const UndefValue *uv = dyn_cast<const UndefValue>(c)) {
     return translateEmptyConstant(m, VAL_UNDEFVALUE, uv);
   }
 
-  if(const BlockAddress *ba = dynamic_cast<const BlockAddress*>(c)) {
+  if(const BlockAddress *ba = dyn_cast<const BlockAddress>(c)) {
     return translateBlockAddress(m, ba);
   }
 
@@ -1967,23 +1967,23 @@ static CValue* translateValue(CModule *m, const Value *v) {
 
   // This order is pretty reasonable since constants will be the most
   // frequent un-cached values.
-  if(const Constant *c = dynamic_cast<const Constant*>(v)) {
+  if(const Constant *c = dyn_cast<const Constant>(v)) {
     return translateConstant(m, c);
   }
 
-  if(const Instruction *i = dynamic_cast<const Instruction*>(v)) {
+  if(const Instruction *i = dyn_cast<const Instruction>(v)) {
     return translateInstruction(m, i);
   }
 
-  if(const BasicBlock *bb = dynamic_cast<const BasicBlock*>(v)) {
+  if(const BasicBlock *bb = dyn_cast<const BasicBlock>(v)) {
     return translateBasicBlock(m, bb);
   }
 
-  if(const InlineAsm *a = dynamic_cast<const InlineAsm*>(v)) {
+  if(const InlineAsm *a = dyn_cast<const InlineAsm>(v)) {
     return translateInlineAsm(m, a);
   }
 
-  if(dynamic_cast<const Argument*>(v)) {
+  if(dyn_cast<const Argument>(v)) {
     string msg = "Un-cached Argument passed to translateValue";
     throw msg;
   }
@@ -2147,7 +2147,7 @@ extern "C" {
       for(Module::const_global_iterator it = m->global_begin(),
             ed = m->global_end(); it != ed; ++it)
       {
-        const GlobalVariable *globalVar = dynamic_cast<const GlobalVariable*>(&*it);
+        const GlobalVariable *globalVar = dyn_cast<const GlobalVariable>(&*it);
         if(!globalVar) throw "Not a global";
 
         CValue *gv = translateGlobalVariable(ret, globalVar);
@@ -2162,7 +2162,7 @@ extern "C" {
       for(Module::const_iterator it = m->begin(),
             ed = m->end(); it != ed; ++it)
       {
-        const Function *func = dynamic_cast<const Function*>(&*it);
+        const Function *func = dyn_cast<const Function>(&*it);
         if(!func) throw "Not a function";
 
         CValue *f = translateFunction(ret, func);
@@ -2177,7 +2177,7 @@ extern "C" {
       for(Module::const_alias_iterator it = m->alias_begin(),
             ed = m->alias_end(); it != ed; ++it)
       {
-        const GlobalAlias *globalAlias = dynamic_cast<const GlobalAlias*>(&*it);
+        const GlobalAlias *globalAlias = dyn_cast<const GlobalAlias>(&*it);
         if(!globalAlias) throw "Not a global alias";
 
         CValue *ga = translateGlobalAlias(ret, globalAlias);
