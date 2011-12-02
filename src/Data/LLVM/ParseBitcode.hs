@@ -89,7 +89,7 @@ data KnotState = KnotState { valueMap :: Map IntPtr Value
                            , typeMap :: Map IntPtr Type
                            , metaMap :: Map IntPtr Metadata
                            , idSrc :: IORef Int
-                           , typeIdSrc :: IORef Int
+                           -- , typeIdSrc :: IORef Int
                            , metaIdSrc :: IORef Int
                            , result :: Maybe Module
                            , visitedTypes :: Set IntPtr
@@ -109,13 +109,13 @@ instance InternString (StateT KnotState IO) where
         return str
 
 
-emptyState :: IORef Int -> IORef Int -> IORef Int -> KnotState
-emptyState r1 r2 r3 =
+emptyState :: IORef Int -> {-IORef Int -> -}IORef Int -> KnotState
+emptyState r1 {-r2-} r3 =
   KnotState { valueMap = M.empty
             , typeMap = M.empty
             , metaMap = M.empty
             , idSrc = r1
-            , typeIdSrc = r2
+--            , typeIdSrc = r2
             , metaIdSrc = r3
             , result = Nothing
             , visitedTypes = S.empty
@@ -136,8 +136,8 @@ genId accessor = do
 nextId :: KnotMonad Int
 nextId = genId idSrc
 
-nextTypeId :: KnotMonad Int
-nextTypeId = genId typeIdSrc
+-- nextTypeId :: KnotMonad Int
+-- nextTypeId = genId typeIdSrc
 
 nextMetaId :: KnotMonad Int
 nextMetaId = genId metaIdSrc
@@ -162,9 +162,9 @@ parseLLVMBitcodeFile opts bitcodefile = do
     exHandler ex = return $ Left (show ex)
     doParse m = do
       idref <- newIORef 1
-      tref <- newIORef 1
+--      tref <- newIORef 1
       mref <- newIORef 1
-      res <- evalStateT (mfix (tieKnot m)) (emptyState idref tref mref)
+      res <- evalStateT (mfix (tieKnot m)) (emptyState idref {-tref-} mref)
 
       disposeCModule m
       case result res of
@@ -676,6 +676,11 @@ translateInstruction finalState bb vp = do
     ValShufflevectorinst -> translateShuffleVectorInst finalState (castPtr dataPtr) realName tt mds bb
     ValExtractvalueinst -> translateExtractValueInst finalState (castPtr dataPtr) realName tt mds bb
     ValInsertvalueinst -> translateInsertValueInst finalState (castPtr dataPtr) realName tt mds bb
+    ValResumeinst -> translateResumeInst finalState (castPtr dataPtr) realName tt mds bb
+    ValFenceinst -> translateFenceInst finalState (castPtr dataPtr) realName tt mds bb
+    ValAtomiccmpxchginst -> translateAtomicCmpXchgInst finalState (castPtr dataPtr) realName tt mds bb
+    ValAtomicrmwinst -> translateAtomicRMWInst finalState (castPtr dataPtr) realName tt mds bb
+    ValLandingpadinst -> translateLandingPadInst finalState (castPtr dataPtr) realName tt mds bb
     _ -> throw $ NonInstructionTag tag
 
   recordValue vp (Value inst)
@@ -1317,6 +1322,12 @@ translateInsertValueInst finalState dataPtr name tt mds bb = do
                              , insertValueIndices = indices
                              }
     _ -> throw $ InvalidInsertValueInst (length ops)
+
+translateResumeInst finalState dataPtr realName tt mds bb = undefined
+translateFenceInst finalState dataPtr realName tt mds bb = undefined
+translateAtomicCmpXchgInst finalState dataPtr realName tt mds bb = undefined
+translateAtomicRMWInst finalState dataPtr realName tt mds bb = undefined
+translateLandingPadInst finalState dataPtr realName tt mds bb = undefined
 
 translateConstantExpr :: KnotState -> ConstExprPtr -> Type -> KnotMonad Instruction
 translateConstantExpr finalState dataPtr tt = do
