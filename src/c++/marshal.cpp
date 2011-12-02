@@ -57,6 +57,7 @@ static ValueTag decodeOpcode(unsigned opcode) {
   case Instruction::IndirectBr: return VAL_INDIRECTBRINST;
   case Instruction::Invoke: return VAL_INVOKEINST;
   case Instruction::Unwind: return VAL_UNWINDINST;
+  case Instruction::Resume: return VAL_RESUMEINST;
   case Instruction::Unreachable: return VAL_UNREACHABLEINST;
   case Instruction::Add: return VAL_ADDINST;
   case Instruction::FAdd: return VAL_FADDINST;
@@ -80,6 +81,9 @@ static ValueTag decodeOpcode(unsigned opcode) {
   case Instruction::Load: return VAL_LOADINST;
   case Instruction::Store: return VAL_STOREINST;
   case Instruction::GetElementPtr: return VAL_GETELEMENTPTRINST;
+  case Instruction::Fence: return VAL_FENCEINST;
+  case Instruction::AtomicCmpXchg: return VAL_ATOMICCMPXCHGINST;
+  case Instruction::AtomicRMW: return VAL_ATOMICRMWINST;
   case Instruction::Trunc: return VAL_TRUNCINST;
   case Instruction::ZExt: return VAL_ZEXTINST;
   case Instruction::SExt: return VAL_SEXTINST;
@@ -103,6 +107,7 @@ static ValueTag decodeOpcode(unsigned opcode) {
   case Instruction::ShuffleVector: return VAL_SHUFFLEVECTORINST;
   case Instruction::ExtractValue: return VAL_EXTRACTVALUEINST;
   case Instruction::InsertValue: return VAL_INSERTVALUEINST;
+  case Instruction::LandingPad: return VAL_LANDINGPADINST;
   }
 
   ostringstream os;
@@ -161,7 +166,6 @@ static TypeTag decodeTypeTag(Type::TypeID t) {
   case Type::StructTyID: return TYPE_STRUCT;
   case Type::ArrayTyID: return TYPE_ARRAY;
   case Type::PointerTyID: return TYPE_POINTER;
-  case Type::OpaqueTyID: return TYPE_OPAQUE;
   case Type::VectorTyID: return TYPE_VECTOR;
   }
 
@@ -207,6 +211,53 @@ static VisibilityStyle decodeVisibility(const GlobalValue *gv) {
   throw os.str();
 }
 
+static CAtomicOrdering decodeOrdering(AtomicOrdering o) {
+  switch(o) {
+  case llvm::NotAtomic: return OrderNotAtomic;
+  case llvm::Unordered: return OrderUnordered;
+  case llvm::Monotonic: return OrderMonotonic;
+  case llvm::Acquire: return OrderAcquire;
+  case llvm::Release: return OrderRelease;
+  case llvm::AcquireRelease: return OrderAcquireRelease;
+  case llvm::SequentiallyConsistent: return OrderSequentiallyConsistent;
+  }
+
+  ostringstream os;
+  os << "Unhandled atomic ordering: " << o;
+  throw os.str();
+}
+
+static CSynchronizationScope decodeSynchScope(SynchronizationScope s) {
+  switch(s) {
+  case llvm::SingleThread: return SSSingleThread;
+  case llvm::CrossThread: return SSCrossThread;
+  }
+
+  ostringstream os;
+  os << "Unhandled synchronization scope: " << s;
+  throw os.str();
+}
+
+static AtomicOperation decodeAtomicOp(AtomicRMWInst::BinOp o) {
+  switch(o) {
+  case AtomicRMWInst::Xchg: return AOXchg;
+  case AtomicRMWInst::Add: return AOAdd;
+  case AtomicRMWInst::Sub: return AOSub;
+  case AtomicRMWInst::And: return AOAnd;
+  case AtomicRMWInst::Nand: return AONand;
+  case AtomicRMWInst::Or: return AOOr;
+  case AtomicRMWInst::Xor: return AOXor;
+  case AtomicRMWInst::Max: return AOMax;
+  case AtomicRMWInst::Min: return AOMin;
+  case AtomicRMWInst::UMax: return AOUMax;
+  case AtomicRMWInst::UMin: return AOUMin;
+  }
+
+  ostringstream os;
+  os << "Unhandled atomic operation: " << o;
+  throw os.str();
+}
+
 static CallingConvention decodeCallingConvention(CallingConv::ID cc) {
   switch(cc) {
   case CallingConv::C: return CC_C;
@@ -232,9 +283,6 @@ static CallingConvention decodeCallingConvention(CallingConv::ID cc) {
 }
 
 static void disposeCType(CType *ct) {
-  if(ct->typeTag == TYPE_NAMED)
-    disposeCType(ct->innerType);
-
   free(ct->name);
   free(ct->typeList);
   free(ct);
@@ -406,6 +454,24 @@ static void disposeData(ValueTag t, void* data) {
     return;
   }
 
+  case VAL_FENCEINST:
+  case VAL_ATOMICCMPXCHGINST:
+  case VAL_ATOMICRMWINST:
+  {
+    CAtomicInfo *ai = (CAtomicInfo*)data;
+    free(ai);
+    return;
+  }
+
+  case VAL_LANDINGPADINST:
+  {
+    CLandingPadInfo *li = (CLandingPadInfo*)data;
+    free(li->clauses);
+    free(li->clauseTypes);
+    return;
+  }
+
+  case VAL_RESUMEINST:
   case VAL_RETINST:
   case VAL_BRANCHINST:
   case VAL_SWITCHINST:
@@ -840,30 +906,30 @@ static CType* translateType(CModule *m, const Type *t) {
   if(it != pd->typeMap.end())
     return it->second;
 
-  CType *nt = (CType*)calloc(1, sizeof(CType));
-  CType *ret = nt;
-  nt->typeTag = decodeTypeTag(t->getTypeID());
+  CType *ret = (CType*)calloc(1, sizeof(CType));
+  // CType *ret = nt;
+  ret->typeTag = decodeTypeTag(t->getTypeID());
 
 
-  string typeName = pd->original->getTypeName(t);
-  if(typeName != "") {
-    CType *namedTypeWrapper = (CType*)calloc(1, sizeof(CType));
+  // string typeName = pd->original->getTypeName(t);
+  // if(typeName != "") {
+  //   CType *namedTypeWrapper = (CType*)calloc(1, sizeof(CType));
 
-    // Normally we would just return the type we are building, but in
-    // this case we need to return the wrapper or it won't be
-    // exported.
-    ret = namedTypeWrapper;
+  //   // Normally we would just return the type we are building, but in
+  //   // this case we need to return the wrapper or it won't be
+  //   // exported.
+  //   ret = namedTypeWrapper;
 
-    namedTypeWrapper->innerType = nt;
-    namedTypeWrapper->typeTag = TYPE_NAMED;
-    namedTypeWrapper->name = strdup(typeName.c_str());
-  }
+  //   namedTypeWrapper->innerType = nt;
+  //   namedTypeWrapper->typeTag = TYPE_NAMED;
+  //   namedTypeWrapper->name = strdup(typeName.c_str());
+  // }
 
   // Need to put this in the table before making any recursive calls,
   // otherwise it might never terminate.
   pd->typeMap[t] = ret;
 
-  switch(nt->typeTag) {
+  switch(ret->typeTag) {
     // Primitives don't require any work
   case TYPE_VOID:
   case TYPE_FLOAT:
@@ -876,23 +942,19 @@ static CType* translateType(CModule *m, const Type *t) {
   case TYPE_X86_MMX:
     break;
 
-    // Also nothing to do here
-  case TYPE_OPAQUE:
-    break;
-
   case TYPE_INTEGER:
-    nt->size = t->getPrimitiveSizeInBits();
+    ret->size = t->getPrimitiveSizeInBits();
     break;
 
   case TYPE_FUNCTION:
   {
     const FunctionType *ft = dyn_cast<const FunctionType>(t);
-    nt->isVarArg = ft->isVarArg();
-    nt->innerType = translateType(m, ft->getReturnType());
-    nt->typeListLen = ft->getNumParams();
-    nt->typeList = (CType**)calloc(nt->typeListLen, sizeof(CType*));
-    for(int i = 0; i < nt->typeListLen; ++i) {
-      nt->typeList[i] = translateType(m, ft->getParamType(i));
+    ret->isVarArg = ft->isVarArg();
+    ret->innerType = translateType(m, ft->getReturnType());
+    ret->typeListLen = ft->getNumParams();
+    ret->typeList = (CType**)calloc(ret->typeListLen, sizeof(CType*));
+    for(int i = 0; i < ret->typeListLen; ++i) {
+      ret->typeList[i] = translateType(m, ft->getParamType(i));
     }
 
     break;
@@ -901,11 +963,12 @@ static CType* translateType(CModule *m, const Type *t) {
   case TYPE_STRUCT:
   {
     const StructType *st = dyn_cast<const StructType>(t);
-    nt->isPacked = st->isPacked();
-    nt->typeListLen = st->getNumElements();
-    nt->typeList = (CType**)calloc(nt->typeListLen, sizeof(CType*));
-    for(int i = 0; i < nt->typeListLen; ++i) {
-      nt->typeList[i] = translateType(m, st->getElementType(i));
+    ret->name = strdup(st->getName().str().c_str());
+    ret->isPacked = st->isPacked();
+    ret->typeListLen = st->getNumElements();
+    ret->typeList = (CType**)calloc(ret->typeListLen, sizeof(CType*));
+    for(int i = 0; i < ret->typeListLen; ++i) {
+      ret->typeList[i] = translateType(m, st->getElementType(i));
     }
     break;
   }
@@ -913,29 +976,29 @@ static CType* translateType(CModule *m, const Type *t) {
   case TYPE_ARRAY:
   {
     const ArrayType *at = dyn_cast<const ArrayType>(t);
-    nt->size = at->getNumElements();
-    nt->innerType = translateType(m, at->getElementType());
+    ret->size = at->getNumElements();
+    ret->innerType = translateType(m, at->getElementType());
     break;
   }
 
   case TYPE_POINTER:
   {
     const PointerType *pt = dyn_cast<const PointerType>(t);
-    nt->innerType = translateType(m, pt->getElementType());
-    nt->addrSpace = pt->getAddressSpace();
+    ret->innerType = translateType(m, pt->getElementType());
+    ret->addrSpace = pt->getAddressSpace();
     break;
   }
 
   case TYPE_VECTOR:
   {
     const VectorType *vt = dyn_cast<const VectorType>(t);
-    nt->size = vt->getNumElements();
-    nt->innerType = translateType(m, vt->getElementType());
+    ret->size = vt->getNumElements();
+    ret->innerType = translateType(m, vt->getElementType());
     break;
   }
 
-  case TYPE_NAMED:
-    throw "TYPE_NAMED is never directly generated by LLVM";
+  // case TYPE_NAMED:
+  //   throw "TYPE_NAMED is never directly generated by LLVM";
   }
 
   return ret;
@@ -1317,6 +1380,52 @@ static void buildPHINode(CModule *m, CValue *v, const PHINode* n) {
   }
 }
 
+static void buildAtomicRMWInst(CModule *m, CValue *v, const AtomicRMWInst *I) {
+  v->valueTag = VAL_ATOMICRMWINST;
+  v->valueType = translateType(m, I->getType());
+  // Should not have a name
+
+  CAtomicInfo *ai = (CAtomicInfo*)calloc(1, sizeof(CAtomicInfo));
+  v->data = (void*)ai;
+
+  ai->ordering = decodeOrdering(I->getOrdering());
+  ai->scope = decodeSynchScope(I->getSynchScope());
+  ai->operation = decodeAtomicOp(I->getOperation());
+  ai->isVolatile = I->isVolatile();
+  ai->addrSpace = I->getPointerAddressSpace();
+  ai->pointerOperand = translateValue(m, I->getPointerOperand());
+  ai->valueOperand = translateValue(m, I->getValOperand());
+}
+
+static void buildAtomicCmpXchgInst(CModule *m, CValue *v, const AtomicCmpXchgInst *I) {
+  v->valueTag = VAL_ATOMICCMPXCHGINST;
+  v->valueType = translateType(m, I->getType());
+  // Should not have a name
+
+  CAtomicInfo *ai = (CAtomicInfo*)calloc(1, sizeof(CAtomicInfo));
+  v->data = (void*)ai;
+
+  ai->ordering = decodeOrdering(I->getOrdering());
+  ai->scope = decodeSynchScope(I->getSynchScope());
+  ai->isVolatile = I->isVolatile();
+  ai->addrSpace = I->getPointerAddressSpace();
+  ai->pointerOperand = translateValue(m, I->getPointerOperand());
+  ai->compareOperand = translateValue(m, I->getCompareOperand());
+  ai->valueOperand = translateValue(m, I->getNewValOperand());
+}
+
+static void buildFenceInst(CModule *m, CValue *v, const FenceInst *I) {
+  v->valueTag = VAL_FENCEINST;
+  v->valueType = translateType(m, I->getType());
+  // Should not have a name
+
+  CAtomicInfo *ai = (CAtomicInfo*)calloc(1, sizeof(CAtomicInfo));
+  v->data = (void*)ai;
+
+  ai->ordering = decodeOrdering(I->getOrdering());
+  ai->scope = decodeSynchScope(I->getSynchScope());
+}
+
 static void buildVAArgInst(CModule *m, CValue *v, const VAArgInst *vi) {
   v->valueTag = VAL_VAARGINST;
   v->valueType = translateType(m, vi->getType());
@@ -1330,6 +1439,28 @@ static void buildVAArgInst(CModule *m, CValue *v, const VAArgInst *vi) {
   ii->operands = (CValue**)calloc(ii->numOperands, sizeof(CValue*));
   for(int i = 0; i < ii->numOperands; ++i) {
     ii->operands[i] = translateValue(m, vi->getOperand(i));
+  }
+}
+
+static void buildLandingPadInst(CModule *m, CValue *v, const LandingPadInst *li) {
+  v->valueTag = VAL_LANDINGPADINST;
+  v->valueType = translateType(m, li->getType());
+
+  if(li->hasName())
+    v->name = strdup(li->getNameStr().c_str());
+
+  CLandingPadInfo *ii = (CLandingPadInfo*)calloc(1, sizeof(CLandingPadInfo));
+  v->data = (void*)ii;
+
+  ii->personality = translateValue(m, li->getPersonalityFn());
+  ii->isCleanup = li->isCleanup();
+  ii->numClauses = li->getNumClauses();
+  ii->clauses = (CValue**)calloc(ii->numClauses, sizeof(CValue*));
+  ii->clauseTypes = (LandingPadClause*)calloc(ii->numClauses, sizeof(LandingPadClause));
+
+  for(int i = 0; i < ii->numClauses; ++i) {
+    ii->clauses[i] = translateValue(m, li->getClause(i));
+    ii->clauseTypes[i] = li->isCatch(i) ? LPCatch : LPFilter;
   }
 }
 
@@ -1496,6 +1627,18 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     buildGEPInst(m, v, dyn_cast<const GetElementPtrInst>(i));
     break;
 
+  case Instruction::Fence:
+    buildFenceInst(m, v, dyn_cast<const FenceInst>(i));
+    break;
+
+  case Instruction::AtomicRMW:
+    buildAtomicRMWInst(m, v, dyn_cast<const AtomicRMWInst>(i));
+    break;
+
+  case Instruction::AtomicCmpXchg:
+    buildAtomicCmpXchgInst(m, v, dyn_cast<const AtomicCmpXchgInst>(i));
+    break;
+
     // Casts
   case Instruction::Trunc:
     buildCastInst(m, v, VAL_TRUNCINST, i);
@@ -1574,6 +1717,10 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     buildSimpleInst(m, v, VAL_SELECTINST, i);
     break;
 
+  case Instruction::Resume:
+    buildSimpleInst(m, v, VAL_RESUMEINST, i);
+    break;
+
   case Instruction::VAArg:
     buildVAArgInst(m, v, dyn_cast<const VAArgInst>(i));
     break;
@@ -1596,6 +1743,10 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
 
   case Instruction::InsertValue:
     buildInsertValueInst(m, v, dyn_cast<const InsertValueInst>(i));
+    break;
+
+  case Instruction::LandingPad:
+    buildLandingPadInst(m, v, dyn_cast<const LandingPadInst>(i));
     break;
 
   default:

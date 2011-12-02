@@ -26,7 +26,7 @@ AC_ARG_WITH(llvm_bindir,
   llvm_bindir="$withval",
   llvm_bindir="$llvm_prefix/bin")dnl
 
-AC_PATH_PROGS(llvm_config, [llvm-config-2.9 llvm-config],
+AC_PATH_PROGS(llvm_config, [llvm-config-3.0 llvm-config],
   [AC_MSG_ERROR(could not find llvm-config in $llvm_bindir)],
   ["$llvm_bindir:$PATH"])
 
@@ -106,8 +106,8 @@ save_LIBS="$LIBS"
 AC_LINK_IFELSE(
   [AC_LANG_PROGRAM([#include <llvm/Module.h>],
     [llvm::Module *dummy])],
-  [LIBS="-lLLVM-2.9 $LIBS"] [HAVE_LLVM=1],
-  [AC_MSG_ERROR(["The llvm-2.9 shared library is not installed"])])
+  [LIBS="-lLLVM-3.0 $LIBS"] [HAVE_LLVM=1],
+  [AC_MSG_ERROR(["The llvm-3.0 shared library is not installed"])])
 
 AC_SUBST([llvm_version])
 AC_SUBST([llvm_cppflags])

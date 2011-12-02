@@ -95,8 +95,16 @@ cTypeList t =
   peekArray t {#get CType->typeList#} {#get CType->typeListLen#}
 cTypeInner :: TypePtr -> IO TypePtr
 cTypeInner = {#get CType->innerType#}
-cTypeName :: TypePtr -> IO String
-cTypeName t = {#get CType->name#} t >>= peekCString
+-- cTypeName :: TypePtr -> IO String
+-- cTypeName t = {#get CType->name#} t >>= peekCString
+cTypeName :: TypePtr -> IO (Maybe String)
+cTypeName t = do
+  n <- optionalField {#get CType->name#} t
+  case n of
+    Nothing -> return Nothing
+    Just n' -> do
+      s <- peekCString n'
+      return (Just s)
 cTypeAddrSpace :: TypePtr -> IO Int
 cTypeAddrSpace t = fromIntegral <$> {#get CType->addrSpace#} t
 

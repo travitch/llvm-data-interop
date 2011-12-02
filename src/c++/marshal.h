@@ -289,12 +289,34 @@ typedef struct {
   int inBounds;
 } CInstructionInfo;
 
+typedef struct {
+  CAtomicOrdering ordering;
+  CSynchronizationScope scope;
+  AtomicOperation operation;
+  int isVolatile;
+  int addrSpace;
+
+  // cmpxchg, atomicrwm
+  CValue *pointerOperand;
+  // cmpxchg, atomicrwm
+  CValue *valueOperand;
+  // cmpxchg
+  CValue *compareOperand;
+} CAtomicInfo;
 
 typedef struct {
   CValue **incomingValues;
   CValue **valueBlocks;
   int numIncomingValues;
 } CPHIInfo;
+
+typedef struct {
+  CValue *personality;
+  int isCleanup;
+  int numClauses;
+  CValue **clauses;
+  LandingPadClause *clauseTypes;
+} CLandingPadInfo;
 
 // Also for invoke
 typedef struct {

@@ -262,6 +262,9 @@ translateTypeRec finalState tp = do
     Just t -> return t
     Nothing -> do
       tag <- liftIO $ cTypeTag tp
+      return $ M.findWithDefault (throw (TypeKnotTyingFailure tag)) ip (typeMap finalState)
+      {-do
+      tag <- liftIO $ cTypeTag tp
       case (S.member ip (visitedTypes s), tag) of
         -- This is a cyclic reference - look it up in the final result
         (False, TYPE_NAMED) -> do
@@ -300,7 +303,7 @@ translateTypeRec finalState tp = do
           put st { typeMap = M.insert ip t (typeMap st) }
           return t
         _ -> translateType' finalState tp
-
+-}
 translateType' :: KnotState -> TypePtr -> KnotMonad Type
 translateType' finalState tp = do
   tag <- liftIO $ cTypeTag tp
@@ -314,7 +317,6 @@ translateType' finalState tp = do
     TYPE_LABEL -> return TypeLabel
     TYPE_METADATA -> return TypeMetadata
     TYPE_X86_MMX -> return TypeX86MMX
-    TYPE_OPAQUE -> return TypeOpaque
     TYPE_INTEGER -> do
       sz <- liftIO $ cTypeSize tp
       return $ TypeInteger sz
@@ -330,10 +332,11 @@ translateType' finalState tp = do
     TYPE_STRUCT -> do
       isPacked <- liftIO $ cTypeIsPacked tp
       ptrs <- liftIO $ cTypeList tp
+      name <- liftIO $ cTypeName tp
 
       types <- mapM (translateTypeRec finalState) ptrs
 
-      return $ TypeStruct types isPacked
+      return $ TypeStruct name types isPacked
     TYPE_ARRAY -> do
       sz <- liftIO $ cTypeSize tp
       itp <- liftIO $ cTypeInner tp
@@ -352,12 +355,13 @@ translateType' finalState tp = do
       innerType <- translateTypeRec finalState itp
 
       return $ TypeVector sz innerType
-    TYPE_NAMED -> do
-      name <- liftIO $ cTypeName tp
-      itp <- liftIO $ cTypeInner tp
-      innerType <- translateTypeRec finalState itp
+    -- TYPE_NAMED -> do
+    --   name <- liftIO $ cTypeName tp
+    --   itp <- liftIO $ cTypeInner tp
+    --   innerType <- translateTypeRec finalState itp
 
-      return $ TypeNamed name innerType
+    --   return $ TypeNamed name innerType
+
   -- Need to get the latest state that exists after processing all
   -- inner types above, otherwise we'll erase their updates from the
   -- map.
