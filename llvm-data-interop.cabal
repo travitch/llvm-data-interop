@@ -31,5 +31,4 @@ library
   ghc-prof-options: -auto-all
   include-dirs: src
   hs-source-dirs: src
-  cc-options: -fvisibility-inlines-hidden -fvisibility=hidden -fno-weak
-
+  cc-options: -fvisibility-inlines-hidden -fvisibility=hidden
