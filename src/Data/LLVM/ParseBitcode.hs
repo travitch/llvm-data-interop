@@ -81,6 +81,7 @@ data TranslationException = TooManyReturnValues
                           | NonInstructionTag ValueTag
                           | InvalidBranchTarget Value
                           | InvalidSwitchTarget Value
+                          | InvalidResumeInst !Int
                           deriving (Show, Typeable)
 instance Exception TranslationException
 
@@ -89,7 +90,6 @@ data KnotState = KnotState { valueMap :: Map IntPtr Value
                            , typeMap :: Map IntPtr Type
                            , metaMap :: Map IntPtr Metadata
                            , idSrc :: IORef Int
-                           -- , typeIdSrc :: IORef Int
                            , metaIdSrc :: IORef Int
                            , result :: Maybe Module
                            , visitedTypes :: Set IntPtr
@@ -109,14 +109,13 @@ instance InternString (StateT KnotState IO) where
         return str
 
 
-emptyState :: IORef Int -> {-IORef Int -> -}IORef Int -> KnotState
-emptyState r1 {-r2-} r3 =
+emptyState :: IORef Int -> IORef Int -> KnotState
+emptyState r1 r2 =
   KnotState { valueMap = M.empty
             , typeMap = M.empty
             , metaMap = M.empty
             , idSrc = r1
---            , typeIdSrc = r2
-            , metaIdSrc = r3
+            , metaIdSrc = r2
             , result = Nothing
             , visitedTypes = S.empty
             , visitedMetadata = S.empty
@@ -135,9 +134,6 @@ genId accessor = do
 
 nextId :: KnotMonad Int
 nextId = genId idSrc
-
--- nextTypeId :: KnotMonad Int
--- nextTypeId = genId typeIdSrc
 
 nextMetaId :: KnotMonad Int
 nextMetaId = genId metaIdSrc
@@ -162,9 +158,8 @@ parseLLVMBitcodeFile opts bitcodefile = do
     exHandler ex = return $ Left (show ex)
     doParse m = do
       idref <- newIORef 1
---      tref <- newIORef 1
       mref <- newIORef 1
-      res <- evalStateT (mfix (tieKnot m)) (emptyState idref {-tref-} mref)
+      res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref)
 
       disposeCModule m
       case result res of
@@ -262,48 +257,11 @@ translateTypeRec finalState tp = do
     Just t -> return t
     Nothing -> do
       tag <- liftIO $ cTypeTag tp
-      return $ M.findWithDefault (throw (TypeKnotTyingFailure tag)) ip (typeMap finalState)
-      {-do
-      tag <- liftIO $ cTypeTag tp
-      case (S.member ip (visitedTypes s), tag) of
-        -- This is a cyclic reference - look it up in the final result
-        (False, TYPE_NAMED) -> do
-          -- If we have never seen a reference to this named type
-          -- before, we need to create it.
-          name <- liftIO $ cTypeName tp
-          itp <- liftIO $ cTypeInner tp
-          innerType <- translateTypeRec finalState itp
-
-          let t = TypeNamed name innerType
-
-          st <- get
-          let m = typeMap st
-              m' = M.insert (ptrToIntPtr itp) innerType m
-              m'' = M.insert ip t m'
-          put st { typeMap = m'' }
-
-          return t
-
-        (True, TYPE_NAMED) ->
-          -- Otherwise, if we *have* seen it before, we can just look
-          -- it up.  This handles the case of seeing the same named
-          -- type for the first time within e.g., a TypeStruct
+      case tag of
+        TYPE_STRUCT ->
           return $ M.findWithDefault (throw (TypeKnotTyingFailure tag)) ip (typeMap finalState)
-        (True, _) -> do
-          -- Here we have detected a cycle in a type that isn't broken
-          -- up by a NamedType.  We introduce an artificial name (a
-          -- type upref) to break the cycle.  This makes it a lot
-          -- easier to print out types later on, as we don't have to
-          -- do on-the-fly cycle detection everywhere we want to work
-          -- with types.
-          let innerType = M.findWithDefault (throw (TypeKnotTyingFailure tag)) ip (typeMap finalState)
-          uprefName <- nextTypeId
-          let t = TypeNamed (show uprefName) innerType
-          st <- get
-          put st { typeMap = M.insert ip t (typeMap st) }
-          return t
         _ -> translateType' finalState tp
--}
+
 translateType' :: KnotState -> TypePtr -> KnotMonad Type
 translateType' finalState tp = do
   tag <- liftIO $ cTypeTag tp
@@ -355,12 +313,6 @@ translateType' finalState tp = do
       innerType <- translateTypeRec finalState itp
 
       return $ TypeVector sz innerType
-    -- TYPE_NAMED -> do
-    --   name <- liftIO $ cTypeName tp
-    --   itp <- liftIO $ cTypeInner tp
-    --   innerType <- translateTypeRec finalState itp
-
-    --   return $ TypeNamed name innerType
 
   -- Need to get the latest state that exists after processing all
   -- inner types above, otherwise we'll erase their updates from the
@@ -1323,11 +1275,119 @@ translateInsertValueInst finalState dataPtr name tt mds bb = do
                              }
     _ -> throw $ InvalidInsertValueInst (length ops)
 
-translateResumeInst finalState dataPtr realName tt mds bb = undefined
-translateFenceInst finalState dataPtr realName tt mds bb = undefined
-translateAtomicCmpXchgInst finalState dataPtr realName tt mds bb = undefined
-translateAtomicRMWInst finalState dataPtr realName tt mds bb = undefined
-translateLandingPadInst finalState dataPtr realName tt mds bb = undefined
+translateResumeInst :: KnotState -> InstInfoPtr -> Maybe Identifier
+                       -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
+translateResumeInst finalState dataPtr realName tt mds bb = do
+  uid <- nextId
+  opPtrs <- liftIO $ cInstructionOperands dataPtr
+  ops <- mapM (translateConstOrRef finalState) opPtrs
+  case ops of
+    [val] ->
+      return ResumeInst { instructionType = tt
+                        , instructionName = realName
+                        , instructionMetadata = mds
+                        , instructionUniqueId = uid
+                        , instructionBasicBlock = bb
+                        , resumeException = val
+                        }
+    _ -> throw $ InvalidResumeInst (length ops)
+
+translateFenceInst :: KnotState -> AtomicInfoPtr -> Maybe Identifier
+                      -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
+translateFenceInst _ dataPtr realName tt mds bb = do
+  uid <- nextId
+  order <- liftIO $ cAtomicOrdering dataPtr
+  scope <- liftIO $ cAtomicScope dataPtr
+  return FenceInst { instructionType = tt
+                   , instructionName = realName
+                   , instructionMetadata = mds
+                   , instructionUniqueId = uid
+                   , instructionBasicBlock = bb
+                   , fenceOrdering = order
+                   , fenceScope = scope
+                   }
+
+translateAtomicCmpXchgInst :: KnotState -> AtomicInfoPtr -> Maybe Identifier
+                             -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
+translateAtomicCmpXchgInst finalState dataPtr realName tt mds bb = do
+  uid <- nextId
+  order <- liftIO $ cAtomicOrdering dataPtr
+  scope <- liftIO $ cAtomicScope dataPtr
+  isVol <- liftIO $ cAtomicIsVolatile dataPtr
+  addrSpc <- liftIO $ cAtomicAddressSpace dataPtr
+  ptrPtr <- liftIO $ cAtomicPointerOperand dataPtr
+  cmpPtr <- liftIO $ cAtomicCompareOperand dataPtr
+  valPtr <- liftIO $ cAtomicValueOperand dataPtr
+
+  ptr <- translateConstOrRef finalState ptrPtr
+  cmp <- translateConstOrRef finalState cmpPtr
+  val <- translateConstOrRef finalState valPtr
+
+  return AtomicCmpXchgInst { instructionType = tt
+                           , instructionName = realName
+                           , instructionMetadata = mds
+                           , instructionUniqueId = uid
+                           , instructionBasicBlock = bb
+                           , atomicCmpXchgOrdering = order
+                           , atomicCmpXchgScope = scope
+                           , atomicCmpXchgIsVolatile = isVol
+                           , atomicCmpXchgAddressSpace = addrSpc
+                           , atomicCmpXchgPointer = ptr
+                           , atomicCmpXchgComparison = cmp
+                           , atomicCmpXchgNewValue = val
+                           }
+
+translateAtomicRMWInst :: KnotState -> AtomicInfoPtr -> Maybe Identifier
+                          -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
+translateAtomicRMWInst finalState dataPtr realName tt mds bb = do
+  uid <- nextId
+  order <- liftIO $ cAtomicOrdering dataPtr
+  scope <- liftIO $ cAtomicScope dataPtr
+  op <- liftIO $ cAtomicOperation dataPtr
+  isVol <- liftIO $ cAtomicIsVolatile dataPtr
+  addrSpc <- liftIO $ cAtomicAddressSpace dataPtr
+  ptrPtr <- liftIO $ cAtomicPointerOperand dataPtr
+  valPtr <- liftIO $ cAtomicValueOperand dataPtr
+
+  ptr <- translateConstOrRef finalState ptrPtr
+  val <- translateConstOrRef finalState valPtr
+
+  return AtomicRMWInst { instructionType = tt
+                       , instructionName = realName
+                       , instructionMetadata = mds
+                       , instructionUniqueId = uid
+                       , instructionBasicBlock = bb
+                       , atomicRMWOrdering = order
+                       , atomicRMWScope = scope
+                       , atomicRMWOperation = op
+                       , atomicRMWIsVolatile = isVol
+                       , atomicRMWAddressSpace = addrSpc
+                       , atomicRMWPointer = ptr
+                       , atomicRMWValue = val
+                       }
+
+translateLandingPadInst :: KnotState -> LandingPadInfoPtr -> Maybe Identifier
+                           -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
+translateLandingPadInst finalState dataPtr realName tt mds bb = do
+  uid <- nextId
+  personPtr <- liftIO $ cLandingPadPersonality dataPtr
+  isClean <- liftIO $ cLandingPadIsCleanup dataPtr
+  clausePtrs <- liftIO $ cLandingPadClauses dataPtr
+  clauseTypes <- liftIO $ cLandingPadClauseTypes dataPtr
+
+  personality <- translateConstOrRef finalState personPtr
+  clauses <- mapM (translateConstOrRef finalState) clausePtrs
+
+  let taggedClauses = zip clauses clauseTypes
+  return LandingPadInst { instructionType = tt
+                        , instructionName = realName
+                        , instructionMetadata = mds
+                        , instructionUniqueId = uid
+                        , instructionBasicBlock = bb
+                        , landingPadPersonality = personality
+                        , landingPadIsCleanup = isClean
+                        , landingPadClauses = taggedClauses
+                        }
 
 translateConstantExpr :: KnotState -> ConstExprPtr -> Type -> KnotMonad Instruction
 translateConstantExpr finalState dataPtr tt = do

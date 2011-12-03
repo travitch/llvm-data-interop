@@ -77,7 +77,9 @@ peekArray obj arrAccessor sizeAccessor = do
     True -> return []
     False -> do
       fArrPtr <- newForeignPtr_ (castPtr arrPtr)
-      arr <- unsafeForeignPtrToStorableArray fArrPtr (1, fromIntegral nElts)
+      let elementCount :: Int
+          elementCount = fromIntegral nElts
+      arr <- unsafeForeignPtrToStorableArray fArrPtr (1, elementCount)
       getElems arr
 
 data CType
@@ -95,8 +97,6 @@ cTypeList t =
   peekArray t {#get CType->typeList#} {#get CType->typeListLen#}
 cTypeInner :: TypePtr -> IO TypePtr
 cTypeInner = {#get CType->innerType#}
--- cTypeName :: TypePtr -> IO String
--- cTypeName t = {#get CType->name#} t >>= peekCString
 cTypeName :: TypePtr -> IO (Maybe String)
 cTypeName t = do
   n <- optionalField {#get CType->name#} t
@@ -540,6 +540,39 @@ cCallUnwindDest :: CallInfoPtr -> IO ValuePtr
 cCallUnwindDest = {#get CCallInfo->unwindDest#}
 cCallNormalDest :: CallInfoPtr -> IO ValuePtr
 cCallNormalDest = {#get CCallInfo->normalDest#}
+
+data CAtomicInfo
+{#pointer *CAtomicInfo as AtomicInfoPtr -> CAtomicInfo #}
+cAtomicOrdering :: AtomicInfoPtr -> IO AtomicOrdering
+cAtomicOrdering ai = toEnum . fromIntegral <$> {#get CAtomicInfo->ordering#} ai
+cAtomicScope :: AtomicInfoPtr -> IO SynchronizationScope
+cAtomicScope ai = toEnum . fromIntegral <$> {#get CAtomicInfo->scope#} ai
+cAtomicOperation :: AtomicInfoPtr -> IO AtomicOperation
+cAtomicOperation ai = toEnum . fromIntegral <$> {#get CAtomicInfo->operation#} ai
+cAtomicIsVolatile :: AtomicInfoPtr -> IO Bool
+cAtomicIsVolatile ai = toBool <$> {#get CAtomicInfo->isVolatile#} ai
+cAtomicAddressSpace :: AtomicInfoPtr -> IO Int
+cAtomicAddressSpace ai = fromIntegral <$> {#get CAtomicInfo->addrSpace#} ai
+cAtomicPointerOperand :: AtomicInfoPtr -> IO ValuePtr
+cAtomicPointerOperand = {#get CAtomicInfo->pointerOperand#}
+cAtomicValueOperand :: AtomicInfoPtr -> IO ValuePtr
+cAtomicValueOperand = {#get CAtomicInfo->valueOperand#}
+cAtomicCompareOperand :: AtomicInfoPtr -> IO ValuePtr
+cAtomicCompareOperand = {#get CAtomicInfo->compareOperand#}
+
+data CLandingPadInfo
+{#pointer *CLandingPadInfo as LandingPadInfoPtr -> CLandingPadInfo#}
+cLandingPadPersonality :: LandingPadInfoPtr -> IO ValuePtr
+cLandingPadPersonality = {#get CLandingPadInfo->personality#}
+cLandingPadIsCleanup :: LandingPadInfoPtr -> IO Bool
+cLandingPadIsCleanup li = toBool <$> {#get CLandingPadInfo->isCleanup#} li
+cLandingPadClauses :: LandingPadInfoPtr -> IO [ValuePtr]
+cLandingPadClauses li =
+  peekArray li {#get CLandingPadInfo->clauses #} {#get CLandingPadInfo->numClauses#}
+cLandingPadClauseTypes :: LandingPadInfoPtr -> IO [LandingPadClause]
+cLandingPadClauseTypes li = do
+  arr <- peekArray li {#get CLandingPadInfo->clauseTypes #} {#get CLandingPadInfo->numClauses#}
+  return $ map toEnum arr
 
 -- | Parse the named file into an FFI-friendly representation of an
 -- LLVM module.
