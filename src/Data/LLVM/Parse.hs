@@ -5,14 +5,15 @@
 -- should not really be an issue, but it is possible to lose
 -- information.  If it is an issue it can be changed.
 {-# LANGUAGE DeriveDataTypeable, RankNTypes, FlexibleInstances #-}
-module Data.LLVM.ParseBitcode (
+module Data.LLVM.Parse (
     -- * Types
   ParserOptions(..),
   PositionPrecision(..),
   -- * Helpers
   defaultParserOptions,
   -- * Parser
-  parseLLVMBitcodeFile
+  parseLLVM,
+  parseLLVMFile
   ) where
 
 import Prelude hiding ( catch )
@@ -23,6 +24,7 @@ import Control.Exception
 import Control.Monad.State
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+import Data.ByteString.Unsafe ( unsafeUseAsCStringLen )
 import Data.IORef
 import Data.Map ( Map )
 import Data.Set ( Set )
@@ -138,33 +140,53 @@ nextId = genId idSrc
 nextMetaId :: KnotMonad Int
 nextMetaId = genId metaIdSrc
 
--- | Parse the named LLVM bitcode file into the LLVM form of the IR (a
+-- | Parse the named LLVM file into the LLVM form of the IR (a
 -- 'Module').  In the case of an error, a descriptive string will be
--- returned.
-parseLLVMBitcodeFile :: ParserOptions -> FilePath -> IO (Either String Module)
-parseLLVMBitcodeFile opts bitcodefile = do
+-- returned.  The input file can be either LLVM assembly or bitcode.
+parseLLVMFile :: ParserOptions -> FilePath -> IO (Either String Module)
+parseLLVMFile opts filename = do
   let includeLineNumbers = metaPositionPrecision opts == PositionPrecise
-  m <- marshalLLVM bitcodefile includeLineNumbers
+  m <- marshalLLVMFile filename includeLineNumbers
 
   hasError <- cModuleHasError m
   case hasError of
     True -> do
       Just err <- cModuleErrorMessage m
       disposeCModule m
-      return $ Left err
-    False -> catch (doParse m) exHandler
-  where
-    exHandler :: TranslationException -> IO (Either String Module)
-    exHandler ex = return $ Left (show ex)
-    doParse m = do
-      idref <- newIORef 1
-      mref <- newIORef 1
-      res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref)
+      return $! Left err
+    False -> catch (translateCModule m) exHandler
 
-      disposeCModule m
-      case result res of
-        Just r -> return $ Right (r `deepseq` r)
-        Nothing -> return $ Left "No module in result"
+-- | Parse the LLVM IR (either assembly or bitcode) from a ByteString
+-- into a 'Module'.
+parseLLVM :: ParserOptions -> ByteString -> IO (Either String Module)
+parseLLVM opts content = do
+  let includeLineNumbers = metaPositionPrecision opts == PositionPrecise
+  unsafeUseAsCStringLen content $ \(s, len) -> do
+    m <- marshalLLVM s len includeLineNumbers
+    hasError <- cModuleHasError m
+    case hasError of
+      True -> do
+        Just err <- cModuleErrorMessage m
+        disposeCModule m
+        return $! Left err
+      False -> catch (translateCModule m) exHandler
+
+translateCModule :: ModulePtr -> IO (Either String Module)
+translateCModule m = do
+  idref <- newIORef 1
+  mref <- newIORef 1
+  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref)
+
+  disposeCModule m
+  case result res of
+    Just r -> do
+      r `deepseq` return ()
+      return $! Right r
+    Nothing -> return $! Left "No module in result"
+
+exHandler :: TranslationException -> IO (Either String Module)
+exHandler ex = return $! Left (show ex)
+
 
 isExternVar :: ValuePtr -> KnotMonad Bool
 isExternVar vp = do

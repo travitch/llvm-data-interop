@@ -576,7 +576,8 @@ cLandingPadClauseTypes li = do
 
 -- | Parse the named file into an FFI-friendly representation of an
 -- LLVM module.
-{#fun marshalLLVM { `String', fromBool `Bool' } -> `ModulePtr' id #}
+{#fun marshalLLVM { id `Ptr CChar', `Int',  fromBool `Bool' } -> `ModulePtr' id #}
+{#fun marshalLLVMFile { `String', fromBool `Bool' } -> `ModulePtr' id #}
 
 -- | Free all of the resources allocated by 'marshalLLVM'
 {#fun disposeCModule { id `ModulePtr' } -> `()' #}

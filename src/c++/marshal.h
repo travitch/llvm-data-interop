@@ -411,7 +411,8 @@ typedef struct {
 extern "C" {
 #endif
   DLL_PUBLIC void disposeCModule(CModule *m);
-  DLL_PUBLIC CModule* marshalLLVM(const char *filename, int includeLocs);
+  DLL_PUBLIC CModule* marshalLLVM(const char *buffer, int bufLen, int includeLocs);
+  DLL_PUBLIC CModule* marshalLLVMFile(const char *filename, int includeLocs);
 #if defined(__cplusplus)
 }
 #endif
