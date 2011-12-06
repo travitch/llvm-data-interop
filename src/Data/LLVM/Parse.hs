@@ -267,25 +267,12 @@ translateType finalState tp = do
       put st { typeMap = M.insert ip t (typeMap st) }
       return t
 
-translateTypeRec :: KnotState -> TypePtr -> KnotMonad Type
-translateTypeRec finalState tp = do
-  s <- get
-  let ip = ptrToIntPtr tp
-  -- Mark this type as visited in the state - the pattern match below
-  -- refers to the version of the map *before* this insertion.
-  put s { visitedTypes = S.insert ip (visitedTypes s) }
-  case M.lookup ip (typeMap s) of
-    -- If we already translated, just do the simple thing.
-    Just t -> return t
-    Nothing -> do
-      tag <- liftIO $ cTypeTag tp
-      case tag of
-        TYPE_STRUCT ->
-          return $ M.findWithDefault (throw (TypeKnotTyingFailure tag)) ip (typeMap finalState)
-        _ -> translateType' finalState tp
-
 translateType' :: KnotState -> TypePtr -> KnotMonad Type
 translateType' finalState tp = do
+  s <- get
+  let ip = ptrToIntPtr tp
+      typeWasVisited = S.member ip (visitedTypes s)
+  put s { visitedTypes = S.insert ip (visitedTypes s) }
   tag <- liftIO $ cTypeTag tp
   t <- case tag of
     TYPE_VOID -> return TypeVoid
@@ -305,34 +292,39 @@ translateType' finalState tp = do
       rtp <- liftIO $ cTypeInner tp
       argTypePtrs <- liftIO $ cTypeList tp
 
-      rType <- translateTypeRec finalState rtp
-      argTypes <- mapM (translateTypeRec finalState) argTypePtrs
+      rType <- translateType' finalState rtp
+      argTypes <- mapM (translateType' finalState) argTypePtrs
 
       return $ TypeFunction rType argTypes isVa
-    TYPE_STRUCT -> do
-      isPacked <- liftIO $ cTypeIsPacked tp
-      ptrs <- liftIO $ cTypeList tp
-      name <- liftIO $ cTypeName tp
+    TYPE_STRUCT -> case typeWasVisited of
+      False -> do
+        isPacked <- liftIO $ cTypeIsPacked tp
+        ptrs <- liftIO $ cTypeList tp
+        name <- liftIO $ cTypeName tp
 
-      types <- mapM (translateTypeRec finalState) ptrs
+        types <- mapM (translateType' finalState) ptrs
 
-      return $ TypeStruct name types isPacked
+        return $ TypeStruct name types isPacked
+      True -> do
+        let finalTypeMap = typeMap finalState
+            ex = throw (TypeKnotTyingFailure tag)
+        return $ M.findWithDefault ex ip finalTypeMap
     TYPE_ARRAY -> do
       sz <- liftIO $ cTypeSize tp
       itp <- liftIO $ cTypeInner tp
-      innerType <- translateTypeRec finalState itp
+      innerType <- translateType' finalState itp
 
       return $ TypeArray sz innerType
     TYPE_POINTER -> do
       itp <- liftIO $ cTypeInner tp
       addrSpc <- liftIO $ cTypeAddrSpace tp
-      innerType <- translateTypeRec finalState itp
+      innerType <- translateType' finalState itp
 
       return $ TypePointer innerType addrSpc
     TYPE_VECTOR -> do
       sz <- liftIO $ cTypeSize tp
       itp <- liftIO $ cTypeInner tp
-      innerType <- translateTypeRec finalState itp
+      innerType <- translateType' finalState itp
 
       return $ TypeVector sz innerType
 
