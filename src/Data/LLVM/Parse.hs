@@ -296,8 +296,9 @@ translateType' finalState tp = do
       argTypes <- mapM (translateType' finalState) argTypePtrs
 
       return $ TypeFunction rType argTypes isVa
-    TYPE_STRUCT -> case typeWasVisited of
-      False -> do
+    TYPE_STRUCT -> case (M.lookup ip (typeMap s), typeWasVisited) of
+      (Just tt, _) -> return tt
+      (Nothing, False) -> do
         isPacked <- liftIO $ cTypeIsPacked tp
         ptrs <- liftIO $ cTypeList tp
         name <- liftIO $ cTypeName tp
@@ -305,7 +306,7 @@ translateType' finalState tp = do
         types <- mapM (translateType' finalState) ptrs
 
         return $ TypeStruct name types isPacked
-      True -> do
+      (Nothing, True) -> do
         let finalTypeMap = typeMap finalState
             ex = throw (TypeKnotTyingFailure tag)
         return $ M.findWithDefault ex ip finalTypeMap
@@ -332,7 +333,7 @@ translateType' finalState tp = do
   -- inner types above, otherwise we'll erase their updates from the
   -- map.
   s' <- get
-  put s' { typeMap = M.insert (ptrToIntPtr tp) t (typeMap s') }
+  put s' { typeMap = M.insert ip t (typeMap s') }
   return t
 
 recordValue :: ValuePtr -> Value -> KnotMonad ()
