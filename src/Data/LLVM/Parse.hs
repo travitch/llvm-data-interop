@@ -1498,7 +1498,7 @@ translateMetadata' finalState mp = do
       col <- liftIO $ cMetaLocationColumn mp
       scope <- liftIO $ cMetaLocationScope mp
 
-      scope' <- translateMetadataRec finalState scope
+      scope' <- maybeTranslateMetadataRec finalState scope
       return MetaSourceLocation { metaSourceRow = line
                                 , metaSourceCol = col
                                 , metaSourceScope = scope'
@@ -1513,7 +1513,7 @@ translateMetadata' finalState mp = do
       off <- liftIO $ cMetaTypeOffset mp
       parent <- liftIO $ cMetaTypeDerivedFrom mp
 
-      cu <- liftIO $ cMetaTypeCompileUnit mp
+      -- cu <- liftIO $ cMetaTypeCompileUnit mp
       isArtif <- liftIO $ cMetaTypeIsArtificial mp
       isVirt <- liftIO $ cMetaTypeIsVirtual mp
       isForward <- liftIO $ cMetaTypeIsForward mp
@@ -1521,9 +1521,9 @@ translateMetadata' finalState mp = do
       isPriv <- liftIO $ cMetaTypeIsPrivate mp
 
       f' <- maybeTranslateMetadataRec finalState f
-      ctxt' <- translateMetadataRec finalState ctxt
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
       parent' <- maybeTranslateMetadataRec finalState parent
-      cu' <- maybeTranslateMetadataRec finalState cu
+      -- cu' <- maybeTranslateMetadataRec finalState cu
 
       return MetaDWDerivedType { metaDerivedTypeContext = ctxt'
                                , metaDerivedTypeName = name
@@ -1534,7 +1534,7 @@ translateMetadata' finalState mp = do
                                , metaDerivedTypeOffset = off
                                , metaDerivedTypeParent = parent'
                                , metaDerivedTypeTag = tag
-                               , metaDerivedTypeCompileUnit = cu'
+                               -- , metaDerivedTypeCompileUnit = cu'
                                , metaDerivedTypeIsArtificial = isArtif
                                , metaDerivedTypeIsVirtual = isVirt
                                , metaDerivedTypeIsForward = isForward
@@ -1555,7 +1555,7 @@ translateMetadata' finalState mp = do
       rlang <- liftIO $ cMetaTypeRuntimeLanguage mp
       ctype <- liftIO $ cMetaTypeContainingType mp
       tparams <- liftIO $ cMetaTypeTemplateParams mp
-      cu <- liftIO $ cMetaTypeCompileUnit mp
+      -- cu <- liftIO $ cMetaTypeCompileUnit mp
       isArtif <- liftIO $ cMetaTypeIsArtificial mp
       isVirtual <- liftIO $ cMetaTypeIsVirtual mp
       isForward <- liftIO $ cMetaTypeIsForward mp
@@ -1563,13 +1563,13 @@ translateMetadata' finalState mp = do
       isPriv <- liftIO $ cMetaTypeIsPrivate mp
       isByRef <- liftIO $ cMetaTypeIsByRefStruct mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
       f' <- maybeTranslateMetadataRec finalState f
       parent' <- maybeTranslateMetadataRec finalState parent
       members' <- maybeTranslateMetadataRec finalState members
       ctype' <- maybeTranslateMetadataRec finalState ctype
       tparams' <- maybeTranslateMetadataRec finalState tparams
-      cu' <- maybeTranslateMetadataRec finalState cu
+      -- cu' <- maybeTranslateMetadataRec finalState cu
 
       return MetaDWCompositeType { metaCompositeTypeTag = tag
                                  , metaCompositeTypeContext = ctxt'
@@ -1585,7 +1585,7 @@ translateMetadata' finalState mp = do
                                  , metaCompositeTypeRuntime = rlang
                                  , metaCompositeTypeContainer = ctype'
                                  , metaCompositeTypeTemplateParams = tparams'
-                                 , metaCompositeTypeCompileUnit = cu'
+                                 -- , metaCompositeTypeCompileUnit = cu'
                                  , metaCompositeTypeIsArtificial = isArtif
                                  , metaCompositeTypeIsVirtual = isVirtual
                                  , metaCompositeTypeIsForward = isForward
@@ -1604,7 +1604,7 @@ translateMetadata' finalState mp = do
       flags <- liftIO $ cMetaTypeFlags mp
       encoding <- liftIO $ cMetaTypeEncoding mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
       f' <- maybeTranslateMetadataRec finalState f
 
       return MetaDWBaseType { metaBaseTypeContext = ctxt'
@@ -1620,7 +1620,7 @@ translateMetadata' finalState mp = do
     MetaVariable -> do
       ctxt <- liftIO $ cMetaVariableContext mp
       name <- cMetaVariableName mp
-      file <- liftIO $ cMetaVariableCompileUnit mp
+      -- file <- liftIO $ cMetaVariableCompileUnit mp
       line <- liftIO $ cMetaVariableLine mp
       argNo <- liftIO $ cMetaVariableArgNumber mp
       ty <- liftIO $ cMetaVariableType mp
@@ -1628,14 +1628,14 @@ translateMetadata' finalState mp = do
       cplxAddr <- liftIO $ cMetaVariableAddrElements mp
       byRef <- liftIO $ cMetaVariableIsBlockByRefVar mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
-      file' <- translateMetadataRec finalState file
-      ty' <- translateMetadataRec finalState ty
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
+      -- file' <- translateMetadataRec finalState file
+      ty' <- maybeTranslateMetadataRec finalState ty
 
       return MetaDWLocal { metaLocalTag = tag
                          , metaLocalContext = ctxt'
                          , metaLocalName = name
-                         , metaLocalFile = file'
+                         -- , metaLocalFile = file'
                          , metaLocalLine = line
                          , metaLocalArgNo = argNo
                          , metaLocalType = ty'
@@ -1648,7 +1648,7 @@ translateMetadata' finalState mp = do
       name <- cMetaSubprogramName mp
       displayName <- cMetaSubprogramDisplayName mp
       linkageName <- cMetaSubprogramLinkageName mp
-      compUnit <- liftIO $ cMetaSubprogramCompileUnit mp
+      -- compUnit <- liftIO $ cMetaSubprogramCompileUnit mp
       line <- liftIO $ cMetaSubprogramLine mp
       ty <- liftIO $ cMetaSubprogramType mp
       isLocal <- liftIO $ cMetaSubprogramIsLocal mp
@@ -1663,16 +1663,16 @@ translateMetadata' finalState mp = do
       isExplicit <- liftIO $ cMetaSubprogramIsExplicit mp
       isPrototyped <- liftIO $ cMetaSubprogramIsPrototyped mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
-      compUnit' <- translateMetadataRec finalState compUnit
-      ty' <- translateMetadataRec finalState ty
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
+      -- compUnit' <- translateMetadataRec finalState compUnit
+      ty' <- maybeTranslateMetadataRec finalState ty
       baseType' <- maybeTranslateMetadataRec finalState baseType
 
       return MetaDWSubprogram { metaSubprogramContext = ctxt'
                               , metaSubprogramName = name
                               , metaSubprogramDisplayName = displayName
                               , metaSubprogramLinkageName = linkageName
-                              , metaSubprogramFile = compUnit'
+                              -- , metaSubprogramFile = compUnit'
                               , metaSubprogramLine = line
                               , metaSubprogramType = ty'
                               , metaSubprogramStatic = isLocal
@@ -1690,21 +1690,21 @@ translateMetadata' finalState mp = do
       name <- cMetaGlobalName mp
       displayName <- cMetaGlobalDisplayName mp
       linkageName <- cMetaGlobalLinkageName mp
-      file <- liftIO $ cMetaGlobalCompileUnit mp
+      -- file <- liftIO $ cMetaGlobalCompileUnit mp
       line <- liftIO $ cMetaGlobalLine mp
       ty <- liftIO $ cMetaGlobalType mp
       isLocal <- liftIO $ cMetaGlobalIsLocal mp
       def <- liftIO $ cMetaGlobalIsDefinition mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
-      file' <- translateMetadataRec finalState file
-      ty' <- translateMetadataRec finalState ty
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
+      -- file' <- translateMetadataRec finalState file
+      ty' <- maybeTranslateMetadataRec finalState ty
 
       return MetaDWVariable { metaGlobalVarContext = ctxt'
                             , metaGlobalVarName = name
                             , metaGlobalVarDisplayName = displayName
                             , metaGlobalVarLinkageName = linkageName
-                            , metaGlobalVarFile = file'
+                            -- , metaGlobalVarFile = file'
                             , metaGlobalVarLine = line
                             , metaGlobalVarType = ty'
                             , metaGlobalVarStatic = isLocal
@@ -1713,13 +1713,13 @@ translateMetadata' finalState mp = do
     MetaFile -> do
       file <- cMetaFileFilename mp
       dir <- cMetaFileDirectory mp
-      cu <- liftIO $ cMetaFileCompileUnit mp
+      -- cu <- liftIO $ cMetaFileCompileUnit mp
 
-      cu' <- translateMetadataRec finalState cu
+      -- cu' <- translateMetadataRec finalState cu
 
       return MetaDWFile { metaFileSourceFile = file
                         , metaFileSourceDir = dir
-                        , metaFileCompileUnit = cu'
+                        -- , metaFileCompileUnit = cu'
                         }
     MetaCompileunit -> do
       lang <- liftIO $ cMetaCompileUnitLanguage mp
@@ -1743,15 +1743,15 @@ translateMetadata' finalState mp = do
     MetaNamespace -> do
       ctxt <- liftIO $ cMetaNamespaceContext mp
       name <- cMetaNamespaceName mp
-      cu <- liftIO $ cMetaNamespaceCompileUnit mp
+      -- cu <- liftIO $ cMetaNamespaceCompileUnit mp
       line <- liftIO $ cMetaNamespaceLine mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
-      cu' <- translateMetadataRec finalState cu
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
+      -- cu' <- translateMetadataRec finalState cu
 
       return MetaDWNamespace { metaNamespaceContext = ctxt'
                              , metaNamespaceName = name
-                             , metaNamespaceCompileUnit = cu'
+                             -- , metaNamespaceCompileUnit = cu'
                              , metaNamespaceLine = line
                              }
     MetaLexicalblock -> do
@@ -1759,7 +1759,7 @@ translateMetadata' finalState mp = do
       line <- liftIO $ cMetaLexicalBlockLine mp
       col <- liftIO $ cMetaLexicalBlockColumn mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
 
       return MetaDWLexicalBlock { metaLexicalBlockRow = line
                                 , metaLexicalBlockCol = col
@@ -1788,8 +1788,8 @@ translateMetadata' finalState mp = do
       line <- liftIO $ cMetaTemplateTypeLine mp
       col <- liftIO $ cMetaTemplateTypeColumn mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
-      ty' <- translateMetadataRec finalState ty
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
+      ty' <- maybeTranslateMetadataRec finalState ty
 
       return MetaDWTemplateTypeParameter { metaTemplateTypeParameterContext = ctxt'
                                          , metaTemplateTypeParameterType = ty'
@@ -1805,8 +1805,8 @@ translateMetadata' finalState mp = do
       line <- liftIO $ cMetaTemplateValueLine mp
       col <- liftIO $ cMetaTemplateValueColumn mp
 
-      ctxt' <- translateMetadataRec finalState ctxt
-      ty' <- translateMetadataRec finalState ty
+      ctxt' <- maybeTranslateMetadataRec finalState ctxt
+      ty' <- maybeTranslateMetadataRec finalState ty
 
       return MetaDWTemplateValueParameter { metaTemplateValueParameterContext = ctxt'
                                           , metaTemplateValueParameterType = ty'

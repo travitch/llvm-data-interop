@@ -46,7 +46,7 @@ typedef struct {
   char *name;
   char *displayName;
   char *linkageName;
-  CMeta *compileUnit;
+  // CMeta *compileUnit;
   unsigned lineNumber;
   CMeta *globalType;
   int isLocalToUnit;
@@ -92,7 +92,7 @@ typedef struct {
 typedef struct {
   CMeta *context;
   char *name;
-  CMeta *compileUnit;
+  // CMeta *compileUnit;
   unsigned lineNumber;
   unsigned argNumber;
   CMeta *type;
@@ -117,7 +117,7 @@ typedef struct {
 typedef struct {
   char *filename;
   char *directory;
-  CMeta *compileUnit;
+  // CMeta *compileUnit;
 } MetaFileInfo;
 
 typedef struct {
@@ -133,7 +133,7 @@ typedef struct {
   char *name;
   char *directory;
   char *filename;
-  CMeta *compileUnit;
+  // CMeta *compileUnit;
   unsigned lineNumber;
 } MetaNamespaceInfo;
 
@@ -142,7 +142,7 @@ typedef struct {
   char *name;
   char *displayName;
   char *linkageName;
-  CMeta *compileUnit;
+  // CMeta *compileUnit;
   unsigned lineNumber;
   CMeta *type;
   char *returnTypeName;
@@ -167,7 +167,7 @@ typedef struct {
 typedef struct {
   CMeta *context;
   char *name;
-  CMeta *compileUnit;
+  // CMeta *compileUnit;
   CMeta *file;
   unsigned lineNumber;
   uint64_t sizeInBits;

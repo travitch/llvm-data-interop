@@ -149,20 +149,20 @@ cMetaEnumeratorName :: InternString m => MetaPtr -> m ByteString
 cMetaEnumeratorName = shareString {#get CMeta->u.metaEnumeratorInfo.enumName#}
 cMetaEnumeratorValue :: MetaPtr -> IO Int64
 cMetaEnumeratorValue p = fromIntegral <$> {#get CMeta->u.metaEnumeratorInfo.enumValue#} p
-cMetaGlobalContext :: MetaPtr -> IO MetaPtr
-cMetaGlobalContext = {#get CMeta->u.metaGlobalInfo.context #}
+cMetaGlobalContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaGlobalContext = optionalField {#get CMeta->u.metaGlobalInfo.context #}
 cMetaGlobalName :: InternString m => MetaPtr -> m ByteString
 cMetaGlobalName = shareString {#get CMeta->u.metaGlobalInfo.name#}
 cMetaGlobalDisplayName :: InternString m => MetaPtr -> m ByteString
 cMetaGlobalDisplayName = shareString {#get CMeta->u.metaGlobalInfo.displayName#}
 cMetaGlobalLinkageName :: InternString m => MetaPtr -> m ByteString
 cMetaGlobalLinkageName = shareString {#get CMeta->u.metaGlobalInfo.linkageName#}
-cMetaGlobalCompileUnit :: MetaPtr -> IO MetaPtr
-cMetaGlobalCompileUnit = {#get CMeta->u.metaGlobalInfo.compileUnit#}
+-- cMetaGlobalCompileUnit :: MetaPtr -> IO MetaPtr
+-- cMetaGlobalCompileUnit = {#get CMeta->u.metaGlobalInfo.compileUnit#}
 cMetaGlobalLine :: MetaPtr -> IO Int32
 cMetaGlobalLine p = fromIntegral <$> {#get CMeta->u.metaGlobalInfo.lineNumber#} p
-cMetaGlobalType :: MetaPtr -> IO MetaPtr
-cMetaGlobalType = {#get CMeta->u.metaGlobalInfo.globalType#}
+cMetaGlobalType :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaGlobalType = optionalField {#get CMeta->u.metaGlobalInfo.globalType#}
 cMetaGlobalIsLocal :: MetaPtr -> IO Bool
 cMetaGlobalIsLocal p = toBool <$> {#get CMeta->u.metaGlobalInfo.isLocalToUnit#} p
 cMetaGlobalIsDefinition :: MetaPtr -> IO Bool
@@ -171,46 +171,46 @@ cMetaLocationLine :: MetaPtr -> IO Int32
 cMetaLocationLine p = fromIntegral <$> {#get CMeta->u.metaLocationInfo.lineNumber#} p
 cMetaLocationColumn :: MetaPtr -> IO Int32
 cMetaLocationColumn p = fromIntegral <$> {#get CMeta->u.metaLocationInfo.columnNumber#} p
-cMetaLocationScope :: MetaPtr -> IO MetaPtr
-cMetaLocationScope = {#get CMeta->u.metaLocationInfo.scope#}
+cMetaLocationScope :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaLocationScope = optionalField {#get CMeta->u.metaLocationInfo.scope#}
 cMetaSubrangeLo :: MetaPtr -> IO Int64
 cMetaSubrangeLo p = fromIntegral <$> {#get CMeta->u.metaSubrangeInfo.lo#} p
 cMetaSubrangeHi :: MetaPtr -> IO Int64
 cMetaSubrangeHi p = fromIntegral <$> {#get CMeta->u.metaSubrangeInfo.hi#} p
-cMetaTemplateTypeContext :: MetaPtr -> IO MetaPtr
-cMetaTemplateTypeContext = {#get CMeta->u.metaTemplateTypeInfo.context#}
+cMetaTemplateTypeContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaTemplateTypeContext = optionalField {#get CMeta->u.metaTemplateTypeInfo.context#}
 cMetaTemplateTypeName :: InternString m => MetaPtr -> m ByteString
 cMetaTemplateTypeName = shareString {#get CMeta->u.metaTemplateTypeInfo.name#}
-cMetaTemplateTypeType :: MetaPtr -> IO MetaPtr
-cMetaTemplateTypeType = {#get CMeta->u.metaTemplateTypeInfo.type#}
+cMetaTemplateTypeType :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaTemplateTypeType = optionalField {#get CMeta->u.metaTemplateTypeInfo.type#}
 cMetaTemplateTypeLine :: MetaPtr -> IO Int32
 cMetaTemplateTypeLine p = fromIntegral <$> {#get CMeta->u.metaTemplateTypeInfo.lineNumber#} p
 cMetaTemplateTypeColumn :: MetaPtr -> IO Int32
 cMetaTemplateTypeColumn p = fromIntegral <$> {#get CMeta->u.metaTemplateTypeInfo.columnNumber#} p
-cMetaTemplateValueContext :: MetaPtr -> IO MetaPtr
-cMetaTemplateValueContext = {#get CMeta->u.metaTemplateValueInfo.context#}
+cMetaTemplateValueContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaTemplateValueContext = optionalField {#get CMeta->u.metaTemplateValueInfo.context#}
 cMetaTemplateValueName :: InternString m => MetaPtr -> m ByteString
 cMetaTemplateValueName = shareString {#get CMeta->u.metaTemplateValueInfo.name#}
-cMetaTemplateValueType :: MetaPtr -> IO MetaPtr
-cMetaTemplateValueType = {#get CMeta->u.metaTemplateValueInfo.type#}
+cMetaTemplateValueType :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaTemplateValueType = optionalField {#get CMeta->u.metaTemplateValueInfo.type#}
 cMetaTemplateValueValue :: MetaPtr -> IO Int64
 cMetaTemplateValueValue p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.value#} p
 cMetaTemplateValueLine :: MetaPtr -> IO Int32
 cMetaTemplateValueLine p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.lineNumber#} p
 cMetaTemplateValueColumn :: MetaPtr -> IO Int32
 cMetaTemplateValueColumn p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.columnNumber#} p
-cMetaVariableContext :: MetaPtr -> IO MetaPtr
-cMetaVariableContext = {#get CMeta->u.metaVariableInfo.context#}
+cMetaVariableContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaVariableContext = optionalField {#get CMeta->u.metaVariableInfo.context#}
 cMetaVariableName :: InternString m => MetaPtr -> m ByteString
 cMetaVariableName = shareString {#get CMeta->u.metaVariableInfo.name#}
-cMetaVariableCompileUnit :: MetaPtr -> IO MetaPtr
-cMetaVariableCompileUnit = {#get CMeta->u.metaVariableInfo.compileUnit#}
+-- cMetaVariableCompileUnit :: MetaPtr -> IO MetaPtr
+-- cMetaVariableCompileUnit = {#get CMeta->u.metaVariableInfo.compileUnit#}
 cMetaVariableLine :: MetaPtr -> IO Int32
 cMetaVariableLine p = fromIntegral <$> {#get CMeta->u.metaVariableInfo.lineNumber#} p
 cMetaVariableArgNumber :: MetaPtr -> IO Int32
 cMetaVariableArgNumber p = fromIntegral <$> {#get CMeta->u.metaVariableInfo.argNumber#} p
-cMetaVariableType :: MetaPtr -> IO MetaPtr
-cMetaVariableType = {#get CMeta->u.metaVariableInfo.type#}
+cMetaVariableType :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaVariableType = optionalField {#get CMeta->u.metaVariableInfo.type#}
 cMetaVariableIsArtificial :: MetaPtr -> IO Bool
 cMetaVariableIsArtificial p = toBool <$> {#get CMeta->u.metaVariableInfo.isArtificial#} p
 cMetaVariableHasComplexAddress :: MetaPtr -> IO Bool
@@ -243,36 +243,36 @@ cMetaFileFilename :: InternString m => MetaPtr -> m ByteString
 cMetaFileFilename = shareString {#get CMeta->u.metaFileInfo.filename#}
 cMetaFileDirectory :: InternString m => MetaPtr -> m ByteString
 cMetaFileDirectory = shareString {#get CMeta->u.metaFileInfo.directory#}
-cMetaFileCompileUnit :: MetaPtr -> IO MetaPtr
-cMetaFileCompileUnit = {#get CMeta->u.metaFileInfo.compileUnit#}
-cMetaLexicalBlockContext :: MetaPtr -> IO MetaPtr
-cMetaLexicalBlockContext = {#get CMeta->u.metaLexicalBlockInfo.context#}
+-- cMetaFileCompileUnit :: MetaPtr -> IO MetaPtr
+-- cMetaFileCompileUnit = {#get CMeta->u.metaFileInfo.compileUnit#}
+cMetaLexicalBlockContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaLexicalBlockContext = optionalField {#get CMeta->u.metaLexicalBlockInfo.context#}
 cMetaLexicalBlockLine :: MetaPtr -> IO Int32
 cMetaLexicalBlockLine p = fromIntegral <$> {#get CMeta->u.metaLexicalBlockInfo.lineNumber#} p
 cMetaLexicalBlockColumn :: MetaPtr -> IO Int32
 cMetaLexicalBlockColumn p = fromIntegral <$> {#get CMeta->u.metaLexicalBlockInfo.columnNumber#} p
-cMetaNamespaceContext :: MetaPtr -> IO MetaPtr
-cMetaNamespaceContext = {#get CMeta->u.metaNamespaceInfo.context#}
+cMetaNamespaceContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaNamespaceContext = optionalField {#get CMeta->u.metaNamespaceInfo.context#}
 cMetaNamespaceName :: InternString m => MetaPtr -> m ByteString
 cMetaNamespaceName = shareString {#get CMeta->u.metaNamespaceInfo.name#}
-cMetaNamespaceCompileUnit :: MetaPtr -> IO MetaPtr
-cMetaNamespaceCompileUnit = {#get CMeta->u.metaNamespaceInfo.compileUnit#}
+-- cMetaNamespaceCompileUnit :: MetaPtr -> IO MetaPtr
+-- cMetaNamespaceCompileUnit = {#get CMeta->u.metaNamespaceInfo.compileUnit#}
 cMetaNamespaceLine :: MetaPtr -> IO Int32
 cMetaNamespaceLine p = fromIntegral <$> {#get CMeta->u.metaNamespaceInfo.lineNumber#} p
-cMetaSubprogramContext :: MetaPtr -> IO MetaPtr
-cMetaSubprogramContext = {#get CMeta->u.metaSubprogramInfo.context#}
+cMetaSubprogramContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaSubprogramContext = optionalField {#get CMeta->u.metaSubprogramInfo.context#}
 cMetaSubprogramName :: InternString m => MetaPtr -> m ByteString
 cMetaSubprogramName = shareString {#get CMeta->u.metaSubprogramInfo.name#}
 cMetaSubprogramDisplayName :: InternString m => MetaPtr -> m ByteString
 cMetaSubprogramDisplayName = shareString {#get CMeta->u.metaSubprogramInfo.displayName#}
 cMetaSubprogramLinkageName :: InternString m => MetaPtr -> m ByteString
 cMetaSubprogramLinkageName = shareString {#get CMeta->u.metaSubprogramInfo.linkageName#}
-cMetaSubprogramCompileUnit :: MetaPtr -> IO MetaPtr
-cMetaSubprogramCompileUnit = {#get CMeta->u.metaSubprogramInfo.compileUnit#}
+-- cMetaSubprogramCompileUnit :: MetaPtr -> IO MetaPtr
+-- cMetaSubprogramCompileUnit = {#get CMeta->u.metaSubprogramInfo.compileUnit#}
 cMetaSubprogramLine :: MetaPtr -> IO Int32
 cMetaSubprogramLine p = fromIntegral <$> {#get CMeta->u.metaSubprogramInfo.lineNumber#} p
-cMetaSubprogramType :: MetaPtr -> IO MetaPtr
-cMetaSubprogramType = {#get CMeta->u.metaSubprogramInfo.type#}
+cMetaSubprogramType :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaSubprogramType = optionalField {#get CMeta->u.metaSubprogramInfo.type#}
 cMetaSubprogramIsLocal :: MetaPtr -> IO Bool
 cMetaSubprogramIsLocal p = toBool <$> {#get CMeta->u.metaSubprogramInfo.isLocalToUnit#} p
 cMetaSubprogramIsDefinition :: MetaPtr -> IO Bool
@@ -295,12 +295,12 @@ cMetaSubprogramIsPrototyped :: MetaPtr -> IO Bool
 cMetaSubprogramIsPrototyped p = toBool <$> {#get CMeta->u.metaSubprogramInfo.isPrototyped#} p
 cMetaSubprogramIsOptimized :: MetaPtr -> IO Bool
 cMetaSubprogramIsOptimized p = toBool <$> {#get CMeta->u.metaSubprogramInfo.isOptimized#} p
-cMetaTypeContext :: MetaPtr -> IO MetaPtr
-cMetaTypeContext = {#get CMeta->u.metaTypeInfo.context#}
+cMetaTypeContext :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaTypeContext = optionalField {#get CMeta->u.metaTypeInfo.context#}
 cMetaTypeName :: InternString m => MetaPtr -> m ByteString
 cMetaTypeName = shareString {#get CMeta->u.metaTypeInfo.name#}
-cMetaTypeCompileUnit :: MetaPtr -> IO (Maybe MetaPtr)
-cMetaTypeCompileUnit = optionalField {#get CMeta->u.metaTypeInfo.compileUnit#}
+-- cMetaTypeCompileUnit :: MetaPtr -> IO (Maybe MetaPtr)
+-- cMetaTypeCompileUnit = optionalField {#get CMeta->u.metaTypeInfo.compileUnit#}
 cMetaTypeFile :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTypeFile = optionalField {#get CMeta->u.metaTypeInfo.file#}
 cMetaTypeLine :: MetaPtr -> IO Int32
