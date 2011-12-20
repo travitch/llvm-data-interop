@@ -130,9 +130,9 @@ genId accessor = do
   s <- get
   let r = accessor s
   thisId <- liftIO $ readIORef r
-  let nextId = thisId + 1
-  nextId `seq` return ()
-  liftIO $ writeIORef r nextId
+  let nid = thisId + 1
+  nid `seq` return ()
+  liftIO $ writeIORef r nid
 
   return thisId
 
