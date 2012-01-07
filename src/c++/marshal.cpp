@@ -2174,8 +2174,12 @@ static void attachFunctionMetadata(CModule *m, Module *M) {
       DIArray sps = dicu.getSubprograms();
       for(unsigned int j = 0; j < sps.getNumElements(); ++j) {
         DIDescriptor spdesc = sps.getElement(j);
-        if(!spdesc.isSubprogram())
-          throw "CompileUnit contains a non-Subprogram";
+        // It looks like there can be NULL entries in subprogram
+        // lists.  Just ignore them.  Debug info is best-effort so
+        // this should be fine.
+        if(!spdesc.isSubprogram()) {
+          continue;
+        }
 
         DISubprogram dsp(spdesc);
         decodeAndAttachSubprogram(m, dsp);
