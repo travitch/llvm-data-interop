@@ -2129,39 +2129,58 @@ static CValue* translateValue(CModule *m, const Value *v) {
   throw os.str();
 }
 
+static void decodeAndAttachSubprogram(CModule *m, DISubprogram sp) {
+  if(sp.getFunction() == NULL)
+    return;
+
+  CMeta *md = translateMetadata(m, sp);
+  if(!md)
+    throw "No translation for subprogram metadata";
+
+  int currentCapacity = md->u.metaSubprogramInfo.function->metaCapacity;
+  int metaCount = md->u.metaSubprogramInfo.function->numMetadata;
+  if(metaCount == 0) {
+    currentCapacity = 10;
+    md->u.metaSubprogramInfo.function->metaCapacity = currentCapacity;
+    md->u.metaSubprogramInfo.function->md =
+      (CMeta**)calloc(currentCapacity, sizeof(CMeta*));
+  }
+  else if(metaCount == currentCapacity - 1) {
+    int newCapacity = 2 * currentCapacity;
+    CMeta **newMeta = (CMeta**)calloc(newCapacity, sizeof(CMeta*));
+    memcpy(newMeta, md->u.metaSubprogramInfo.function->md, currentCapacity);
+    md->u.metaSubprogramInfo.function->metaCapacity = newCapacity;
+  }
+
+  md->u.metaSubprogramInfo.function->md[metaCount] = md;
+  md->u.metaSubprogramInfo.function->numMetadata++;
+}
+
 static void attachFunctionMetadata(CModule *m, Module *M) {
-  NamedMDNode *sp = M->getNamedMetadata("llvm.dbg.sp");
-  // No debug information
-  if(!sp) return;
-
-  for(unsigned int i = 0; i < sp->getNumOperands(); ++i) {
-    CMeta *md = translateMetadata(m, sp->getOperand(i));
-    if(md->metaTag != META_SUBPROGRAM) {
-      throw "Non-subprogram in llvm.dbg.sp";
+  // dragonegg format
+  if(NamedMDNode *sp = M->getNamedMetadata("llvm.dbg.sp")) {
+    for(unsigned int i = 0; i < sp->getNumOperands(); ++i) {
+      DISubprogram dsp(sp->getOperand(i));
+      decodeAndAttachSubprogram(m, dsp);
     }
+  }
+  // clang format
+  else if(NamedMDNode *cu = M->getNamedMetadata("llvm.dbg.cu")) {
+    for(unsigned int i = 0; i < cu->getNumOperands(); ++i) {
+      DIDescriptor cudesc(cu->getOperand(i));
+      if(!cudesc.isCompileUnit())
+        throw "llvm.dbg.cu contains a something that isn't a CompileUnit";
+      DICompileUnit dicu(cu->getOperand(i));
+      DIArray sps = dicu.getSubprograms();
+      for(unsigned int j = 0; j < sps.getNumElements(); ++j) {
+        DIDescriptor spdesc = sps.getElement(j);
+        if(!spdesc.isSubprogram())
+          throw "CompileUnit contains a non-Subprogram";
 
-    // If there isn't a function listed to attach this to (why?) we
-    // can't do much.
-    if(md->u.metaSubprogramInfo.function == NULL)
-      continue;
-
-    int currentCapacity = md->u.metaSubprogramInfo.function->metaCapacity;
-    int metaCount = md->u.metaSubprogramInfo.function->numMetadata;
-    if(metaCount == 0) {
-      currentCapacity = 10;
-      md->u.metaSubprogramInfo.function->metaCapacity = currentCapacity;
-      md->u.metaSubprogramInfo.function->md =
-        (CMeta**)calloc(currentCapacity, sizeof(CMeta*));
+        DISubprogram dsp(spdesc);
+        decodeAndAttachSubprogram(m, dsp);
+      }
     }
-    else if(metaCount == currentCapacity - 1) {
-      int newCapacity = 2 * currentCapacity;
-      CMeta **newMeta = (CMeta**)calloc(newCapacity, sizeof(CMeta*));
-      memcpy(newMeta, md->u.metaSubprogramInfo.function->md, currentCapacity);
-      md->u.metaSubprogramInfo.function->metaCapacity = newCapacity;
-    }
-
-    md->u.metaSubprogramInfo.function->md[metaCount] = md;
-    md->u.metaSubprogramInfo.function->numMetadata++;
   }
 }
 
@@ -2225,6 +2244,7 @@ static CModule* marshal(CModule * module) {
     module->globalVariables = (CValue**)calloc(module->numGlobalVariables, sizeof(CValue*));
     std::copy(globalVariables.begin(), globalVariables.end(), module->globalVariables);
 
+
     std::vector<CValue*> functions;
     for(Module::const_iterator it = m->begin(),
           ed = m->end(); it != ed; ++it)
@@ -2239,6 +2259,7 @@ static CModule* marshal(CModule * module) {
     module->numFunctions = functions.size();
     module->functions = (CValue**)calloc(module->numFunctions, sizeof(CValue*));
     std::copy(functions.begin(), functions.end(), module->functions);
+
 
     std::vector<CValue*> globalAliases;
     for(Module::const_alias_iterator it = m->alias_begin(),
