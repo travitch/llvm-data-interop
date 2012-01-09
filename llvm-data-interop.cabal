@@ -13,8 +13,7 @@ cabal-version: >=1.10
 -- Description:
 
 extra-source-files: configure,
-                    llvm.buildinfo.in,
-                    llvm.buildinfo.windows.in,
+                    llvm-data-interop.buildinfo.in,
                     src/c++/marshal.h
 
 library

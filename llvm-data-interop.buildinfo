@@ -1,0 +1,7 @@
+cpp-options: -I/afs/cs.wisc.edu/unsup/llvm-3.0/@sys/include  -DNDEBUG -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -DTARGET=X86
+ghc-options: -pgml g++
+extra-libraries: LLVM-3.0 stdc++
+extra-lib-dirs:  /afs/cs.wisc.edu/unsup/llvm-3.0/@sys/lib
+x-extra-ghci-libraries: LLVM-3.0
+ld-options:  -Wl,-rpath,/afs/cs.wisc.edu/unsup/llvm-3.0/@sys/lib
+include-dirs: /afs/cs.wisc.edu/unsup/llvm-3.0/@sys/include

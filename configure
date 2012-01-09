@@ -1808,7 +1808,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
 
-ac_config_files="$ac_config_files llvm.buildinfo"
+ac_config_files="$ac_config_files llvm-data-interop.buildinfo"
 
 
 ac_ext=cpp
@@ -4004,7 +4004,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "llvm.buildinfo") CONFIG_FILES="$CONFIG_FILES llvm.buildinfo" ;;
+    "llvm-data-interop.buildinfo") CONFIG_FILES="$CONFIG_FILES llvm-data-interop.buildinfo" ;;
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 $as_echo "$as_me: error: invalid argument: $ac_config_target" >&2;}

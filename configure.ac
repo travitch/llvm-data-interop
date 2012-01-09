@@ -4,7 +4,7 @@ AC_LANG(C++)
 
 AC_CONFIG_SRCDIR([src/Data/LLVM/Internal/Interop.chs])
 
-AC_CONFIG_FILES([llvm.buildinfo])
+AC_CONFIG_FILES([llvm-data-interop.buildinfo])
 
 AC_PROG_CXX
 
