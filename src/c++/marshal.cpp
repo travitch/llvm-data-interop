@@ -600,6 +600,7 @@ static MetaTag extractMetaTag(const MDNode *md) {
   DIDescriptor desc(md);
   // Ranked roughly by frequency.
   if(desc.isLexicalBlock()) return META_LEXICALBLOCK;
+  if(desc.isLexicalBlockFile()) return META_LEXICALBLOCK;
   if(desc.isVariable()) return META_VARIABLE;
   if(desc.isSubprogram()) return META_SUBPROGRAM;
   if(desc.isGlobalVariable()) return META_GLOBALVARIABLE;
