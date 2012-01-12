@@ -600,6 +600,9 @@ static MetaTag extractMetaTag(const MDNode *md) {
   DIDescriptor desc(md);
   // Ranked roughly by frequency.
   if(desc.isLexicalBlock()) return META_LEXICALBLOCK;
+  // This variant of lexical block has an extra file argument that is
+  // not currently translated.  This might be used for code inserted
+  // by the preprocessor from headers?
   if(desc.isLexicalBlockFile()) return META_LEXICALBLOCK;
   if(desc.isVariable()) return META_VARIABLE;
   if(desc.isSubprogram()) return META_SUBPROGRAM;
