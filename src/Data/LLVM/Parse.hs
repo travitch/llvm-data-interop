@@ -13,6 +13,7 @@ module Data.LLVM.Parse (
   defaultParserOptions,
   -- * Parser
   parseLLVM,
+  hParseLLVM,
   parseLLVMFile
   ) where
 
@@ -24,6 +25,7 @@ import Control.Exception
 import Control.Monad.State
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Unsafe ( unsafeUseAsCStringLen )
 import Data.IORef
 import Data.Map ( Map )
@@ -33,6 +35,7 @@ import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
 import Data.Typeable
 import Foreign.Ptr
+import System.IO ( Handle, hSetBinaryMode )
 
 import Data.LLVM.Types
 import Data.LLVM.Internal.Interop
@@ -158,7 +161,14 @@ parseLLVMFile opts filename = do
       return $! Left err
     False -> catch (translateCModule m) exHandler
 
--- | Parse the LLVM IR (either assembly or bitcode) from a ByteString
+-- | Parse LLVM IR from a Handle into a 'Module'
+hParseLLVM :: ParserOptions -> Handle -> IO (Either String Module)
+hParseLLVM opts h = do
+  hSetBinaryMode h True
+  bs <- BS.hGetContents h
+  parseLLVM opts bs
+
+-- | Parse the LLVM IR (either assembly or bitcode) from a lazy ByteString
 -- into a 'Module'.
 parseLLVM :: ParserOptions -> ByteString -> IO (Either String Module)
 parseLLVM opts content = do
