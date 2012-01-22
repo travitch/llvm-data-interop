@@ -5,6 +5,7 @@
 -- should not really be an issue, but it is possible to lose
 -- information.  If it is an issue it can be changed.
 {-# LANGUAGE DeriveDataTypeable, RankNTypes, FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Data.LLVM.Parse (
     -- * Types
   ParserOptions(..),
@@ -33,6 +34,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
 import Data.Typeable
+import FileLocation
 import Foreign.Ptr
 import System.IO ( Handle, hSetBinaryMode )
 
@@ -155,9 +157,9 @@ parseLLVMFile opts filename = do
   hasError <- cModuleHasError m
   case hasError of
     True -> do
-      Just err <- cModuleErrorMessage m
+      Just errMsg <- cModuleErrorMessage m
       disposeCModule m
-      return $! Left err
+      return $! Left errMsg
     False -> catch (translateCModule m) exHandler
 
 -- | Parse LLVM IR from a Handle into a 'Module'
@@ -177,9 +179,9 @@ parseLLVM opts content = do
     hasError <- cModuleHasError m
     case hasError of
       True -> do
-        Just err <- cModuleErrorMessage m
+        Just errMsg <- cModuleErrorMessage m
         disposeCModule m
-        return $! Left err
+        return $! Left errMsg
       False -> catch (translateCModule m) exHandler
 
 translateCModule :: ModulePtr -> IO (Either String Module)
@@ -963,8 +965,10 @@ translateInvokeInst finalState dataPtr name tt mds bb = do
 
   let n'' = case valueContent n' of
         BasicBlockC b -> b
+        _ -> $err' "Expected BasicBlock for normal invoke label"
       u'' = case valueContent u' of
         BasicBlockC b -> b
+        _ -> $err' "Expected BasicBlock for unwind invoke label"
 
   return InvokeInst { instructionName = name
                     , instructionType = tt
