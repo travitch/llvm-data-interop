@@ -337,6 +337,8 @@ cMetaTypeContainingType :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTypeContainingType = optionalField {#get CMeta->u.metaTypeInfo.containingType#}
 cMetaTypeTemplateParams :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTypeTemplateParams = optionalField {#get CMeta->u.metaTypeInfo.templateParams#}
+cMetaUnknownRepr :: InternString m => MetaPtr -> m ByteString
+cMetaUnknownRepr = shareString {#get CMeta->u.metaUnknownInfo.repr#}
 
 optionalField :: (a -> IO (Ptr b)) -> a -> IO (Maybe (Ptr b))
 optionalField accessor p = do

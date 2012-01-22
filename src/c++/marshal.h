@@ -197,6 +197,10 @@ typedef struct {
   CMeta *templateParams;
 } MetaTypeInfo;
 
+typedef struct {
+  char *repr;
+} MetaUnknownInfo;
+
 struct CMeta_t {
   MetaTag metaTag;
   unsigned int tag;
@@ -215,6 +219,7 @@ struct CMeta_t {
     MetaNamespaceInfo metaNamespaceInfo;
     MetaSubprogramInfo metaSubprogramInfo;
     MetaTypeInfo metaTypeInfo;
+    MetaUnknownInfo metaUnknownInfo;
   } u;
 };
 

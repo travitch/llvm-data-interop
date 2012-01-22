@@ -369,7 +369,12 @@ static void disposeCMeta(CMeta *meta) {
     free(meta->u.metaTemplateValueInfo.filename);
     free(meta->u.metaTemplateValueInfo.directory);
     break;
+
+  case META_UNKNOWN:
+    free(meta->u.metaUnknownInfo.repr);
+    break;
   }
+
 
   free(meta);
 }
@@ -618,11 +623,13 @@ static MetaTag extractMetaTag(const MDNode *md) {
   if(desc.isTemplateTypeParameter()) return META_TEMPLATETYPEPARAMETER;
   if(desc.isTemplateValueParameter()) return META_TEMPLATEVALUEPARAMETER;
 
-  string msg;
-  raw_string_ostream os(msg);
-  os << "Unhandled metadata node type: ";
-  md->print(os);
-  throw os.str();
+  // Otherwise we have no idea what to do with this.  One type of odd
+  // metadata is the inline assembly srcloc metadata, which has a
+  // strange format.  Right now we don't bother to translate this.  It
+  // could probably be done if required... we don't know what it
+  // really is at this stage, though, so it might need to be
+  // serialized generically as an MDNode
+  return META_UNKNOWN;
 }
 
 static CValue* translateConstant(CModule *m, const Constant *c);
@@ -901,6 +908,18 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
   case META_ARRAY: makeMetaArray(m, md, meta); break;
   case META_TEMPLATETYPEPARAMETER: makeMetaTemplateTypeParameter(m, md, meta); break;
   case META_TEMPLATEVALUEPARAMETER: makeMetaTemplateValueParameter(m, md, meta); break;
+  case META_UNKNOWN:
+  {
+    // Just dump unknown metadata to a string... it might be more
+    // appropriate to make a generic MDNode, but that is low priority.
+    string msg;
+    raw_string_ostream os(msg);
+    os << "Unhandled metadata node type: ";
+    md->print(os);
+
+    meta->u.metaUnknownInfo.repr = strdup(os.str().c_str());
+    break;
+  }
   }
 
   return meta;

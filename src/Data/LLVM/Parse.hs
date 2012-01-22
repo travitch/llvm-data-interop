@@ -25,7 +25,6 @@ import Control.Exception
 import Control.Monad.State
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Unsafe ( unsafeUseAsCStringLen )
 import Data.IORef
 import Data.Map ( Map )
@@ -1825,6 +1824,9 @@ translateMetadata' finalState mp = do
                                           , metaTemplateValueParameterValue = val
                                           , metaTemplateValueParameterName = name
                                           }
+    MetaUnknown -> do
+      repr <- cMetaUnknownRepr mp
+      return $! MetadataUnknown repr
 
   uid <- nextMetaId
   let md = Metadata { metaValueContent = content
