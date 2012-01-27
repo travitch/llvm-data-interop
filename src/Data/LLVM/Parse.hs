@@ -586,7 +586,6 @@ translateInstruction finalState bb vp = do
 
   mds <- mapM (translateMetadata finalState) metaPtr
 
-  -- realName <- computeRealName name
   tt <- translateType finalState typePtr
 
   inst <- case tag of
