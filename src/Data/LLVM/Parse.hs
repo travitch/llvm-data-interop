@@ -586,7 +586,7 @@ translateInstruction finalState bb vp = do
 
   mds <- mapM (translateMetadata finalState) metaPtr
 
-  realName <- computeRealName name
+  -- realName <- computeRealName name
   tt <- translateType finalState typePtr
 
   inst <- case tag of
@@ -610,57 +610,57 @@ translateInstruction finalState bb vp = do
                              , instructionUniqueId = uid
                              , instructionBasicBlock = bb
                              }
-    ValInvokeinst -> translateInvokeInst finalState (castPtr dataPtr) realName tt mds bb
-    ValAddinst -> translateFlaggedBinaryOp finalState AddInst (castPtr dataPtr) realName tt mds bb
-    ValFaddinst -> translateFlaggedBinaryOp finalState AddInst (castPtr dataPtr) realName tt mds bb
-    ValSubinst -> translateFlaggedBinaryOp finalState SubInst (castPtr dataPtr) realName tt mds bb
-    ValFsubinst -> translateFlaggedBinaryOp finalState SubInst (castPtr dataPtr) realName tt mds bb
-    ValMulinst ->  translateFlaggedBinaryOp finalState MulInst (castPtr dataPtr) realName tt mds bb
-    ValFmulinst ->  translateFlaggedBinaryOp finalState MulInst (castPtr dataPtr) realName tt mds bb
-    ValUdivinst -> translateBinaryOp finalState DivInst (castPtr dataPtr) realName tt mds bb
-    ValSdivinst -> translateBinaryOp finalState DivInst (castPtr dataPtr) realName tt mds bb
-    ValFdivinst -> translateBinaryOp finalState DivInst (castPtr dataPtr) realName tt mds bb
-    ValUreminst -> translateBinaryOp finalState RemInst (castPtr dataPtr) realName tt mds bb
-    ValSreminst -> translateBinaryOp finalState RemInst (castPtr dataPtr) realName tt mds bb
-    ValFreminst -> translateBinaryOp finalState RemInst (castPtr dataPtr) realName tt mds bb
-    ValShlinst -> translateBinaryOp finalState ShlInst (castPtr dataPtr) realName tt mds bb
-    ValLshrinst -> translateBinaryOp finalState LshrInst (castPtr dataPtr) realName tt mds bb
-    ValAshrinst -> translateBinaryOp finalState AshrInst (castPtr dataPtr) realName tt mds bb
-    ValAndinst -> translateBinaryOp finalState AndInst (castPtr dataPtr) realName tt mds bb
-    ValOrinst -> translateBinaryOp finalState OrInst (castPtr dataPtr) realName tt mds bb
-    ValXorinst -> translateBinaryOp finalState XorInst (castPtr dataPtr) realName tt mds bb
-    ValAllocainst -> translateAllocaInst finalState (castPtr dataPtr) realName tt mds bb
-    ValLoadinst -> translateLoadInst finalState (castPtr dataPtr) realName tt mds bb
+    ValInvokeinst -> translateInvokeInst finalState (castPtr dataPtr) name tt mds bb
+    ValAddinst -> translateFlaggedBinaryOp finalState AddInst (castPtr dataPtr) name tt mds bb
+    ValFaddinst -> translateFlaggedBinaryOp finalState AddInst (castPtr dataPtr) name tt mds bb
+    ValSubinst -> translateFlaggedBinaryOp finalState SubInst (castPtr dataPtr) name tt mds bb
+    ValFsubinst -> translateFlaggedBinaryOp finalState SubInst (castPtr dataPtr) name tt mds bb
+    ValMulinst ->  translateFlaggedBinaryOp finalState MulInst (castPtr dataPtr) name tt mds bb
+    ValFmulinst ->  translateFlaggedBinaryOp finalState MulInst (castPtr dataPtr) name tt mds bb
+    ValUdivinst -> translateBinaryOp finalState DivInst (castPtr dataPtr) name tt mds bb
+    ValSdivinst -> translateBinaryOp finalState DivInst (castPtr dataPtr) name tt mds bb
+    ValFdivinst -> translateBinaryOp finalState DivInst (castPtr dataPtr) name tt mds bb
+    ValUreminst -> translateBinaryOp finalState RemInst (castPtr dataPtr) name tt mds bb
+    ValSreminst -> translateBinaryOp finalState RemInst (castPtr dataPtr) name tt mds bb
+    ValFreminst -> translateBinaryOp finalState RemInst (castPtr dataPtr) name tt mds bb
+    ValShlinst -> translateBinaryOp finalState ShlInst (castPtr dataPtr) name tt mds bb
+    ValLshrinst -> translateBinaryOp finalState LshrInst (castPtr dataPtr) name tt mds bb
+    ValAshrinst -> translateBinaryOp finalState AshrInst (castPtr dataPtr) name tt mds bb
+    ValAndinst -> translateBinaryOp finalState AndInst (castPtr dataPtr) name tt mds bb
+    ValOrinst -> translateBinaryOp finalState OrInst (castPtr dataPtr) name tt mds bb
+    ValXorinst -> translateBinaryOp finalState XorInst (castPtr dataPtr) name tt mds bb
+    ValAllocainst -> translateAllocaInst finalState (castPtr dataPtr) name tt mds bb
+    ValLoadinst -> translateLoadInst finalState (castPtr dataPtr) name tt mds bb
     ValStoreinst -> translateStoreInst finalState (castPtr dataPtr) tt mds bb
-    ValGetelementptrinst -> translateGEPInst finalState (castPtr dataPtr) realName tt mds bb
-    ValTruncinst -> translateCastInst finalState TruncInst (castPtr dataPtr) realName tt mds bb
-    ValZextinst -> translateCastInst finalState ZExtInst (castPtr dataPtr) realName tt mds bb
-    ValSextinst -> translateCastInst finalState SExtInst (castPtr dataPtr) realName tt mds bb
-    ValFptruncinst -> translateCastInst finalState FPTruncInst (castPtr dataPtr) realName tt mds bb
-    ValFpextinst -> translateCastInst finalState FPExtInst (castPtr dataPtr) realName tt mds bb
-    ValFptouiinst -> translateCastInst finalState FPToUIInst (castPtr dataPtr) realName tt mds bb
-    ValFptosiinst -> translateCastInst finalState FPToSIInst (castPtr dataPtr) realName tt mds bb
-    ValUitofpinst -> translateCastInst finalState UIToFPInst (castPtr dataPtr) realName tt mds bb
-    ValSitofpinst -> translateCastInst finalState SIToFPInst (castPtr dataPtr) realName tt mds bb
-    ValPtrtointinst -> translateCastInst finalState PtrToIntInst (castPtr dataPtr) realName tt mds bb
-    ValInttoptrinst -> translateCastInst finalState IntToPtrInst (castPtr dataPtr) realName tt mds bb
-    ValBitcastinst -> translateCastInst finalState BitcastInst (castPtr dataPtr) realName tt mds bb
-    ValIcmpinst -> translateCmpInst finalState ICmpInst (castPtr dataPtr) realName tt mds bb
-    ValFcmpinst -> translateCmpInst finalState FCmpInst (castPtr dataPtr) realName tt mds bb
-    ValPhinode -> translatePhiNode finalState (castPtr dataPtr) realName tt mds bb
-    ValCallinst -> translateCallInst finalState (castPtr dataPtr) realName tt mds bb
-    ValSelectinst -> translateSelectInst finalState (castPtr dataPtr) realName tt mds bb
-    ValVaarginst -> translateVarArgInst finalState (castPtr dataPtr) realName tt mds bb
-    ValExtractelementinst -> translateExtractElementInst finalState (castPtr dataPtr) realName tt mds bb
-    ValInsertelementinst -> translateInsertElementInst finalState (castPtr dataPtr) realName tt mds bb
-    ValShufflevectorinst -> translateShuffleVectorInst finalState (castPtr dataPtr) realName tt mds bb
-    ValExtractvalueinst -> translateExtractValueInst finalState (castPtr dataPtr) realName tt mds bb
-    ValInsertvalueinst -> translateInsertValueInst finalState (castPtr dataPtr) realName tt mds bb
-    ValResumeinst -> translateResumeInst finalState (castPtr dataPtr) realName tt mds bb
-    ValFenceinst -> translateFenceInst finalState (castPtr dataPtr) realName tt mds bb
-    ValAtomiccmpxchginst -> translateAtomicCmpXchgInst finalState (castPtr dataPtr) realName tt mds bb
-    ValAtomicrmwinst -> translateAtomicRMWInst finalState (castPtr dataPtr) realName tt mds bb
-    ValLandingpadinst -> translateLandingPadInst finalState (castPtr dataPtr) realName tt mds bb
+    ValGetelementptrinst -> translateGEPInst finalState (castPtr dataPtr) name tt mds bb
+    ValTruncinst -> translateCastInst finalState TruncInst (castPtr dataPtr) name tt mds bb
+    ValZextinst -> translateCastInst finalState ZExtInst (castPtr dataPtr) name tt mds bb
+    ValSextinst -> translateCastInst finalState SExtInst (castPtr dataPtr) name tt mds bb
+    ValFptruncinst -> translateCastInst finalState FPTruncInst (castPtr dataPtr) name tt mds bb
+    ValFpextinst -> translateCastInst finalState FPExtInst (castPtr dataPtr) name tt mds bb
+    ValFptouiinst -> translateCastInst finalState FPToUIInst (castPtr dataPtr) name tt mds bb
+    ValFptosiinst -> translateCastInst finalState FPToSIInst (castPtr dataPtr) name tt mds bb
+    ValUitofpinst -> translateCastInst finalState UIToFPInst (castPtr dataPtr) name tt mds bb
+    ValSitofpinst -> translateCastInst finalState SIToFPInst (castPtr dataPtr) name tt mds bb
+    ValPtrtointinst -> translateCastInst finalState PtrToIntInst (castPtr dataPtr) name tt mds bb
+    ValInttoptrinst -> translateCastInst finalState IntToPtrInst (castPtr dataPtr) name tt mds bb
+    ValBitcastinst -> translateCastInst finalState BitcastInst (castPtr dataPtr) name tt mds bb
+    ValIcmpinst -> translateCmpInst finalState ICmpInst (castPtr dataPtr) name tt mds bb
+    ValFcmpinst -> translateCmpInst finalState FCmpInst (castPtr dataPtr) name tt mds bb
+    ValPhinode -> translatePhiNode finalState (castPtr dataPtr) name tt mds bb
+    ValCallinst -> translateCallInst finalState (castPtr dataPtr) name tt mds bb
+    ValSelectinst -> translateSelectInst finalState (castPtr dataPtr) name tt mds bb
+    ValVaarginst -> translateVarArgInst finalState (castPtr dataPtr) name tt mds bb
+    ValExtractelementinst -> translateExtractElementInst finalState (castPtr dataPtr) name tt mds bb
+    ValInsertelementinst -> translateInsertElementInst finalState (castPtr dataPtr) name tt mds bb
+    ValShufflevectorinst -> translateShuffleVectorInst finalState (castPtr dataPtr) name tt mds bb
+    ValExtractvalueinst -> translateExtractValueInst finalState (castPtr dataPtr) name tt mds bb
+    ValInsertvalueinst -> translateInsertValueInst finalState (castPtr dataPtr) name tt mds bb
+    ValResumeinst -> translateResumeInst finalState (castPtr dataPtr) tt mds bb
+    ValFenceinst -> translateFenceInst finalState (castPtr dataPtr) tt mds bb
+    ValAtomiccmpxchginst -> translateAtomicCmpXchgInst finalState (castPtr dataPtr) tt mds bb
+    ValAtomicrmwinst -> translateAtomicRMWInst finalState (castPtr dataPtr) tt mds bb
+    ValLandingpadinst -> translateLandingPadInst finalState (castPtr dataPtr) name tt mds bb
     _ -> throw $ NonInstructionTag tag
 
   recordValue vp (Value inst)
@@ -946,9 +946,17 @@ translateIndirectBrInst finalState dataPtr tt mds bb = do
       BasicBlockC b' -> b'
       _ -> throw (InvalidBranchTarget b)
 
+computeNameIfNotVoid :: Maybe Identifier -> Type -> KnotMonad (Maybe Identifier)
+computeNameIfNotVoid mid t =
+  case t of
+    TypeFunction TypeVoid _ _ -> return Nothing
+    TypeVoid -> return Nothing
+    _ -> computeRealName mid
+
 translateInvokeInst :: KnotState -> CallInfoPtr -> Maybe Identifier -> Type
                        -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateInvokeInst finalState dataPtr name tt mds bb = do
+  n <- computeNameIfNotVoid name tt
   func <- liftIO $ cCallValue dataPtr
   args <- liftIO $ cCallArguments dataPtr
   cc <- liftIO $ cCallConvention dataPtr
@@ -970,7 +978,7 @@ translateInvokeInst finalState dataPtr name tt mds bb = do
         BasicBlockC b -> b
         _ -> $err' "Expected BasicBlock for unwind invoke label"
 
-  return InvokeInst { instructionName = name
+  return InvokeInst { instructionName = n
                     , instructionType = tt
                     , instructionMetadata = mds
                     , instructionUniqueId = uid
@@ -990,6 +998,7 @@ translateFlaggedBinaryOp :: KnotState
                             -> InstInfoPtr -> Maybe Identifier -> Type
                             -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateFlaggedBinaryOp finalState constructor dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   flags <- liftIO $ cInstructionArithFlags dataPtr
 
@@ -997,7 +1006,7 @@ translateFlaggedBinaryOp finalState constructor dataPtr name tt mds bb = do
   uid <- nextId
 
   case ops of
-    [lhs, rhs] -> return $ constructor tt name mds uid bb flags lhs rhs
+    [lhs, rhs] -> return $ constructor tt n mds uid bb flags lhs rhs
     _ -> throw $ InvalidBinaryOp (length ops)
 
 translateBinaryOp :: KnotState
@@ -1005,17 +1014,19 @@ translateBinaryOp :: KnotState
                      -> InstInfoPtr -> Maybe Identifier -> Type
                      -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateBinaryOp finalState constructor dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   uid <- nextId
 
   case ops of
-    [lhs, rhs] -> return $ constructor tt name mds uid bb lhs rhs
+    [lhs, rhs] -> return $ constructor tt n mds uid bb lhs rhs
     _ -> throw $ InvalidBinaryOp (length ops)
 
 translateAllocaInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                        -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateAllocaInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   align <- liftIO $ cInstructionAlign dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
@@ -1023,7 +1034,7 @@ translateAllocaInst finalState dataPtr name tt mds bb = do
 
   case ops of
     [val] -> return AllocaInst { instructionType = tt
-                               , instructionName = name
+                               , instructionName = n
                                , instructionMetadata = mds
                                , instructionUniqueId = uid
                                , instructionBasicBlock = bb
@@ -1036,6 +1047,7 @@ translateAllocaInst finalState dataPtr name tt mds bb = do
 translateLoadInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                      -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateLoadInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   align <- liftIO $ cInstructionAlign dataPtr
   vol <- liftIO $ cInstructionIsVolatile dataPtr
@@ -1045,7 +1057,7 @@ translateLoadInst finalState dataPtr name tt mds bb = do
 
   case ops of
     [addr] -> return LoadInst { instructionType = tt
-                              , instructionName = name
+                              , instructionName = n
                               , instructionMetadata = mds
                               , instructionUniqueId = uid
                               , instructionBasicBlock = bb
@@ -1083,6 +1095,7 @@ translateStoreInst finalState dataPtr tt mds bb = do
 translateGEPInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                     -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateGEPInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   inBounds <- liftIO $ cInstructionInBounds dataPtr
   addrSpace <- liftIO $ cInstructionAddrSpace dataPtr
@@ -1091,7 +1104,7 @@ translateGEPInst finalState dataPtr name tt mds bb = do
   ops <- mapM (translateConstOrRef finalState) opPtrs
 
   case ops of
-    (val:indices) -> return GetElementPtrInst { instructionName = name
+    (val:indices) -> return GetElementPtrInst { instructionName = n
                                               , instructionType = tt
                                               , instructionMetadata = mds
                                               , instructionUniqueId = uid
@@ -1108,12 +1121,13 @@ translateCastInst :: KnotState
                      -> InstInfoPtr -> Maybe Identifier -> Type
                      -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateCastInst finalState constructor dataPtr name tt mds bb = do
+  n <- computeRealName name
   uid <- nextId
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
 
   case ops of
-    [v] -> return $ constructor tt name mds uid bb v
+    [v] -> return $ constructor tt n mds uid bb v
     _ -> throw $ InvalidUnaryOp (length ops)
 
 translateCmpInst :: KnotState
@@ -1121,6 +1135,7 @@ translateCmpInst :: KnotState
                     -> InstInfoPtr -> Maybe Identifier -> Type -> [Metadata]
                     -> Maybe BasicBlock -> KnotMonad Instruction
 translateCmpInst finalState constructor dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   predicate <- liftIO $ cInstructionCmpPred dataPtr
   uid <- nextId
@@ -1128,12 +1143,13 @@ translateCmpInst finalState constructor dataPtr name tt mds bb = do
   ops <- mapM (translateConstOrRef finalState) opPtrs
 
   case ops of
-    [op1, op2] -> return $ constructor tt name mds uid bb predicate op1 op2
+    [op1, op2] -> return $ constructor tt n mds uid bb predicate op1 op2
     _ -> throw $ InvalidBinaryOp (length ops)
 
 translatePhiNode :: KnotState -> PHIInfoPtr -> Maybe Identifier
                     -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translatePhiNode finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   vptrs <- liftIO $ cPHIValues dataPtr
   bptrs <- liftIO $ cPHIBlocks dataPtr
   uid <- nextId
@@ -1142,7 +1158,7 @@ translatePhiNode finalState dataPtr name tt mds bb = do
   blocks <- mapM (translateConstOrRef finalState) bptrs
 
   return PhiNode { instructionType = tt
-                 , instructionName = name
+                 , instructionName = n
                  , instructionMetadata = mds
                  , instructionUniqueId = uid
                  , instructionBasicBlock = bb
@@ -1152,6 +1168,7 @@ translatePhiNode finalState dataPtr name tt mds bb = do
 translateCallInst :: KnotState -> CallInfoPtr -> Maybe Identifier
                      -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateCallInst finalState dataPtr name tt mds bb = do
+  n <- computeNameIfNotVoid name tt
   vptr <- liftIO $ cCallValue dataPtr
   aptrs <- liftIO $ cCallArguments dataPtr
   cc <- liftIO $ cCallConvention dataPtr
@@ -1163,7 +1180,7 @@ translateCallInst finalState dataPtr name tt mds bb = do
   args <- mapM (translateConstOrRef finalState) aptrs
 
   return CallInst { instructionType = tt
-                  , instructionName = name
+                  , instructionName = n
                   , instructionMetadata = mds
                   , instructionUniqueId = uid
                   , instructionBasicBlock = bb
@@ -1179,13 +1196,14 @@ translateCallInst finalState dataPtr name tt mds bb = do
 translateSelectInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                        -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateSelectInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   uid <- nextId
   case ops of
     [cond, trueval, falseval] ->
       return SelectInst { instructionType = tt
-                        , instructionName = name
+                        , instructionName = n
                         , instructionMetadata = mds
                         , instructionUniqueId = uid
                         , instructionBasicBlock = bb
@@ -1198,12 +1216,13 @@ translateSelectInst finalState dataPtr name tt mds bb = do
 translateVarArgInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                        -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateVarArgInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   uid <- nextId
   case ops of
     [op] -> return VaArgInst { instructionType = tt
-                             , instructionName = name
+                             , instructionName = n
                              , instructionMetadata = mds
                              , instructionUniqueId = uid
                              , instructionBasicBlock = bb
@@ -1214,13 +1233,14 @@ translateVarArgInst finalState dataPtr name tt mds bb = do
 translateExtractElementInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                                -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateExtractElementInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   uid <- nextId
   case ops of
     [vec, idx] ->
       return ExtractElementInst { instructionType = tt
-                                , instructionName = name
+                                , instructionName = n
                                 , instructionMetadata = mds
                                 , instructionUniqueId = uid
                                 , instructionBasicBlock = bb
@@ -1232,13 +1252,14 @@ translateExtractElementInst finalState dataPtr name tt mds bb = do
 translateInsertElementInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                               -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateInsertElementInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   uid <- nextId
   case ops of
     [vec, val, idx] ->
       return InsertElementInst { instructionType = tt
-                               , instructionName = name
+                               , instructionName = n
                                , instructionMetadata = mds
                                , instructionUniqueId = uid
                                , instructionBasicBlock = bb
@@ -1251,13 +1272,14 @@ translateInsertElementInst finalState dataPtr name tt mds bb = do
 translateShuffleVectorInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                               -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateShuffleVectorInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   uid <- nextId
   case ops of
     [v1, v2, vecMask] ->
       return ShuffleVectorInst { instructionType = tt
-                               , instructionName = name
+                               , instructionName = n
                                , instructionMetadata = mds
                                , instructionUniqueId = uid
                                , instructionBasicBlock = bb
@@ -1270,13 +1292,14 @@ translateShuffleVectorInst finalState dataPtr name tt mds bb = do
 translateExtractValueInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                              -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateExtractValueInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   indices <- liftIO $ cInstructionIndices dataPtr
   uid <- nextId
   ops <- mapM (translateConstOrRef finalState) opPtrs
   case ops of
     [agg] -> return ExtractValueInst { instructionType = tt
-                                     , instructionName = name
+                                     , instructionName = n
                                      , instructionMetadata = mds
                                      , instructionUniqueId = uid
                                      , instructionBasicBlock = bb
@@ -1288,6 +1311,7 @@ translateExtractValueInst finalState dataPtr name tt mds bb = do
 translateInsertValueInst :: KnotState -> InstInfoPtr -> Maybe Identifier
                             -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
 translateInsertValueInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   indices <- liftIO $ cInstructionIndices dataPtr
   uid <- nextId
@@ -1295,7 +1319,7 @@ translateInsertValueInst finalState dataPtr name tt mds bb = do
   case ops of
     [agg, val] ->
       return InsertValueInst { instructionType = tt
-                             , instructionName = name
+                             , instructionName = n
                              , instructionMetadata = mds
                              , instructionUniqueId = uid
                              , instructionBasicBlock = bb
@@ -1305,16 +1329,16 @@ translateInsertValueInst finalState dataPtr name tt mds bb = do
                              }
     _ -> throw $ InvalidInsertValueInst (length ops)
 
-translateResumeInst :: KnotState -> InstInfoPtr -> Maybe Identifier
-                       -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
-translateResumeInst finalState dataPtr realName tt mds bb = do
+translateResumeInst :: KnotState -> InstInfoPtr -> Type -> [Metadata]
+                       -> Maybe BasicBlock -> KnotMonad Instruction
+translateResumeInst finalState dataPtr tt mds bb = do
   uid <- nextId
   opPtrs <- liftIO $ cInstructionOperands dataPtr
   ops <- mapM (translateConstOrRef finalState) opPtrs
   case ops of
     [val] ->
       return ResumeInst { instructionType = tt
-                        , instructionName = realName
+                        , instructionName = Nothing
                         , instructionMetadata = mds
                         , instructionUniqueId = uid
                         , instructionBasicBlock = bb
@@ -1322,14 +1346,14 @@ translateResumeInst finalState dataPtr realName tt mds bb = do
                         }
     _ -> throw $ InvalidResumeInst (length ops)
 
-translateFenceInst :: KnotState -> AtomicInfoPtr -> Maybe Identifier
-                      -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
-translateFenceInst _ dataPtr realName tt mds bb = do
+translateFenceInst :: KnotState -> AtomicInfoPtr -> Type -> [Metadata]
+                      -> Maybe BasicBlock -> KnotMonad Instruction
+translateFenceInst _ dataPtr tt mds bb = do
   uid <- nextId
   order <- liftIO $ cAtomicOrdering dataPtr
   scope <- liftIO $ cAtomicScope dataPtr
   return FenceInst { instructionType = tt
-                   , instructionName = realName
+                   , instructionName = Nothing
                    , instructionMetadata = mds
                    , instructionUniqueId = uid
                    , instructionBasicBlock = bb
@@ -1337,9 +1361,9 @@ translateFenceInst _ dataPtr realName tt mds bb = do
                    , fenceScope = scope
                    }
 
-translateAtomicCmpXchgInst :: KnotState -> AtomicInfoPtr -> Maybe Identifier
-                             -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
-translateAtomicCmpXchgInst finalState dataPtr realName tt mds bb = do
+translateAtomicCmpXchgInst :: KnotState -> AtomicInfoPtr -> Type -> [Metadata]
+                              -> Maybe BasicBlock -> KnotMonad Instruction
+translateAtomicCmpXchgInst finalState dataPtr tt mds bb = do
   uid <- nextId
   order <- liftIO $ cAtomicOrdering dataPtr
   scope <- liftIO $ cAtomicScope dataPtr
@@ -1354,7 +1378,7 @@ translateAtomicCmpXchgInst finalState dataPtr realName tt mds bb = do
   val <- translateConstOrRef finalState valPtr
 
   return AtomicCmpXchgInst { instructionType = tt
-                           , instructionName = realName
+                           , instructionName = Nothing
                            , instructionMetadata = mds
                            , instructionUniqueId = uid
                            , instructionBasicBlock = bb
@@ -1367,9 +1391,9 @@ translateAtomicCmpXchgInst finalState dataPtr realName tt mds bb = do
                            , atomicCmpXchgNewValue = val
                            }
 
-translateAtomicRMWInst :: KnotState -> AtomicInfoPtr -> Maybe Identifier
-                          -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
-translateAtomicRMWInst finalState dataPtr realName tt mds bb = do
+translateAtomicRMWInst :: KnotState -> AtomicInfoPtr -> Type -> [Metadata]
+                          -> Maybe BasicBlock -> KnotMonad Instruction
+translateAtomicRMWInst finalState dataPtr tt mds bb = do
   uid <- nextId
   order <- liftIO $ cAtomicOrdering dataPtr
   scope <- liftIO $ cAtomicScope dataPtr
@@ -1383,7 +1407,7 @@ translateAtomicRMWInst finalState dataPtr realName tt mds bb = do
   val <- translateConstOrRef finalState valPtr
 
   return AtomicRMWInst { instructionType = tt
-                       , instructionName = realName
+                       , instructionName = Nothing
                        , instructionMetadata = mds
                        , instructionUniqueId = uid
                        , instructionBasicBlock = bb
@@ -1398,7 +1422,8 @@ translateAtomicRMWInst finalState dataPtr realName tt mds bb = do
 
 translateLandingPadInst :: KnotState -> LandingPadInfoPtr -> Maybe Identifier
                            -> Type -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
-translateLandingPadInst finalState dataPtr realName tt mds bb = do
+translateLandingPadInst finalState dataPtr name tt mds bb = do
+  n <- computeRealName name
   uid <- nextId
   personPtr <- liftIO $ cLandingPadPersonality dataPtr
   isClean <- liftIO $ cLandingPadIsCleanup dataPtr
@@ -1410,7 +1435,7 @@ translateLandingPadInst finalState dataPtr realName tt mds bb = do
 
   let taggedClauses = zip clauses clauseTypes
   return LandingPadInst { instructionType = tt
-                        , instructionName = realName
+                        , instructionName = n
                         , instructionMetadata = mds
                         , instructionUniqueId = uid
                         , instructionBasicBlock = bb
