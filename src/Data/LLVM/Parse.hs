@@ -189,7 +189,6 @@ translateCModule m = do
   idref <- newIORef 1
   mref <- newIORef 1
   res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref)
-
   disposeCModule m
   case result res of
     Just r -> do
@@ -267,87 +266,71 @@ translateType :: KnotState -> TypePtr -> KnotMonad Type
 translateType finalState tp = do
   s <- get
   let ip = ptrToIntPtr tp
-  -- This top-level translateType function is never called
-  -- recursively, so the set it introduces here will be valid for the
-  -- entire duration of the translateType call.  It will be
-  -- overwritten on the next call.
-  put s { visitedTypes = S.singleton ip }
-  case M.lookup ip (typeMap s) of
-    Just t -> return t
-    Nothing -> do
-      t <- translateType' finalState tp
-      st <- get
-      put st { typeMap = M.insert ip t (typeMap st) }
-      return t
+      visTys = visitedTypes s
 
-translateType' :: KnotState -> TypePtr -> KnotMonad Type
-translateType' finalState tp = do
-  s <- get
-  let ip = ptrToIntPtr tp
-      typeWasVisited = S.member ip (visitedTypes s)
-  put s { visitedTypes = S.insert ip (visitedTypes s) }
   tag <- liftIO $ cTypeTag tp
-  t <- case tag of
-    TYPE_VOID -> return TypeVoid
-    TYPE_FLOAT -> return TypeFloat
-    TYPE_DOUBLE -> return TypeDouble
-    TYPE_X86_FP80 -> return TypeX86FP80
-    TYPE_FP128 -> return TypeFP128
-    TYPE_PPC_FP128 -> return TypePPCFP128
-    TYPE_LABEL -> return TypeLabel
-    TYPE_METADATA -> return TypeMetadata
-    TYPE_X86_MMX -> return TypeX86MMX
-    TYPE_INTEGER -> do
-      sz <- liftIO $ cTypeSize tp
-      return $ TypeInteger sz
-    TYPE_FUNCTION -> do
-      isVa <- liftIO $ cTypeIsVarArg tp
-      rtp <- liftIO $ cTypeInner tp
-      argTypePtrs <- liftIO $ cTypeList tp
 
-      rType <- translateType' finalState rtp
-      argTypes <- mapM (translateType' finalState) argTypePtrs
+  case S.member ip visTys of
+    -- We have visited this type before, so look it up in the final
+    -- state lazily.
+    True -> do
+      let finalTypeMap = typeMap finalState
+          ex = throw (TypeKnotTyingFailure tag)
+      return $ M.findWithDefault ex ip finalTypeMap
+    -- We haven't seen this yet, so build a type for it
+    False -> do
+      put s { visitedTypes = S.insert ip visTys }
+      t <- case tag of
+        TYPE_VOID -> return TypeVoid
+        TYPE_FLOAT -> return TypeFloat
+        TYPE_DOUBLE -> return TypeDouble
+        TYPE_X86_FP80 -> return TypeX86FP80
+        TYPE_FP128 -> return TypeFP128
+        TYPE_PPC_FP128 -> return TypePPCFP128
+        TYPE_LABEL -> return TypeLabel
+        TYPE_METADATA -> return TypeMetadata
+        TYPE_X86_MMX -> return TypeX86MMX
+        TYPE_INTEGER -> do
+          sz <- liftIO $ cTypeSize tp
+          return $ TypeInteger sz
+        TYPE_FUNCTION -> do
+          isVa <- liftIO $ cTypeIsVarArg tp
+          rtp <- liftIO $ cTypeInner tp
+          argTypePtrs <- liftIO $ cTypeList tp
 
-      return $ TypeFunction rType argTypes isVa
-    TYPE_STRUCT -> case (M.lookup ip (typeMap s), typeWasVisited) of
-      (Just tt, _) -> return tt
-      (Nothing, False) -> do
-        isPacked <- liftIO $ cTypeIsPacked tp
-        ptrs <- liftIO $ cTypeList tp
-        name <- liftIO $ cTypeName tp
+          rType <- translateType finalState rtp
+          argTypes <- mapM (translateType finalState) argTypePtrs
 
-        types <- mapM (translateType' finalState) ptrs
+          return $ TypeFunction rType argTypes isVa
+        TYPE_ARRAY -> do
+          sz <- liftIO $ cTypeSize tp
+          itp <- liftIO $ cTypeInner tp
+          innerType <- translateType finalState itp
 
-        return $ TypeStruct name types isPacked
-      (Nothing, True) -> do
-        let finalTypeMap = typeMap finalState
-            ex = throw (TypeKnotTyingFailure tag)
-        return $ M.findWithDefault ex ip finalTypeMap
-    TYPE_ARRAY -> do
-      sz <- liftIO $ cTypeSize tp
-      itp <- liftIO $ cTypeInner tp
-      innerType <- translateType' finalState itp
+          return $ TypeArray sz innerType
+        TYPE_POINTER -> do
+          itp <- liftIO $ cTypeInner tp
+          addrSpc <- liftIO $ cTypeAddrSpace tp
+          innerType <- translateType finalState itp
 
-      return $ TypeArray sz innerType
-    TYPE_POINTER -> do
-      itp <- liftIO $ cTypeInner tp
-      addrSpc <- liftIO $ cTypeAddrSpace tp
-      innerType <- translateType' finalState itp
+          return $ TypePointer innerType addrSpc
+        TYPE_VECTOR -> do
+          sz <- liftIO $ cTypeSize tp
+          itp <- liftIO $ cTypeInner tp
+          innerType <- translateType finalState itp
 
-      return $ TypePointer innerType addrSpc
-    TYPE_VECTOR -> do
-      sz <- liftIO $ cTypeSize tp
-      itp <- liftIO $ cTypeInner tp
-      innerType <- translateType' finalState itp
+          return $ TypeVector sz innerType
+        TYPE_STRUCT -> do
+          isPacked <- liftIO $ cTypeIsPacked tp
+          ptrs <- liftIO $ cTypeList tp
+          name <- liftIO $ cTypeName tp
 
-      return $ TypeVector sz innerType
+          types <- mapM (translateType finalState) ptrs
 
-  -- Need to get the latest state that exists after processing all
-  -- inner types above, otherwise we'll erase their updates from the
-  -- map.
-  s' <- get
-  put s' { typeMap = M.insert ip t (typeMap s') }
-  return t
+          return $ TypeStruct name types isPacked
+      s' <- get
+      put s' { typeMap = M.insert ip t (typeMap s') }
+      return t
 
 recordValue :: ValuePtr -> Value -> KnotMonad ()
 recordValue vp v = do
@@ -514,6 +497,7 @@ translateFunction finalState vp = do
                                   , functionUniqueId = uid
                                   }
                 return f')
+
   recordValue vp (Value f)
   return f
 
@@ -575,6 +559,14 @@ computeRealName name = do
     Nothing -> do
       put s { localId = idCtr + 1 }
       return $ Just $ makeLocalIdentifier $ BS.pack (show idCtr)
+
+-- FIXME: Ideally we would be able to not give names to void call
+-- instructions (to match the numbering used by llvm).  Unfortunately,
+-- checking whether or not t is void here collapses the knot we are
+-- tying too soon and crashes the program.
+computeNameIfNotVoid :: Maybe Identifier -> Type -> KnotMonad (Maybe Identifier)
+computeNameIfNotVoid mid _ = computeRealName mid
+
 
 translateInstruction :: KnotState -> Maybe BasicBlock -> ValuePtr -> KnotMonad Instruction
 translateInstruction finalState bb vp = do
@@ -945,12 +937,6 @@ translateIndirectBrInst finalState dataPtr tt mds bb = do
       BasicBlockC b' -> b'
       _ -> throw (InvalidBranchTarget b)
 
-computeNameIfNotVoid :: Maybe Identifier -> Type -> KnotMonad (Maybe Identifier)
-computeNameIfNotVoid mid t =
-  case t of
-    TypeFunction TypeVoid _ _ -> return Nothing
-    TypeVoid -> return Nothing
-    _ -> computeRealName mid
 
 translateInvokeInst :: KnotState -> CallInfoPtr -> Maybe Identifier -> Type
                        -> [Metadata] -> Maybe BasicBlock -> KnotMonad Instruction
