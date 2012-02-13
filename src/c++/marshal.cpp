@@ -972,7 +972,11 @@ static CType* translateType(CModule *m, const Type *t) {
   case TYPE_STRUCT:
   {
     const StructType *st = dyn_cast<const StructType>(t);
-    ret->name = strdup(st->getName().str().c_str());
+    if(st->hasName())
+      ret->name = strdup(st->getName().str().c_str());
+    else
+      ret->name = NULL;
+
     ret->isPacked = st->isPacked();
     ret->typeListLen = st->getNumElements();
     ret->typeList = (CType**)calloc(ret->typeListLen, sizeof(CType*));
