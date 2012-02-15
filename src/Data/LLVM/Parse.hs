@@ -58,7 +58,7 @@ data ParserOptions = ParserOptions { metaPositionPrecision :: PositionPrecision 
 
 -- | Reasonable default parsing options
 defaultParserOptions :: ParserOptions
-defaultParserOptions = ParserOptions { metaPositionPrecision = PositionNone }
+defaultParserOptions = ParserOptions { metaPositionPrecision = PositionPrecise }
 
 data TranslationException = TooManyReturnValues
                           | InvalidBranchInst
@@ -575,8 +575,14 @@ translateInstruction finalState bb vp = do
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
+  srcLocPtr <- liftIO $ cValueSrcLoc vp
 
-  mds <- mapM (translateMetadata finalState) metaPtr
+  metas <- mapM (translateMetadata finalState) metaPtr
+  mds <- case srcLocPtr == nullPtr of
+    True -> return metas
+    False -> do
+      srcLoc <- translateMetadata finalState srcLocPtr
+      return $ srcLoc : metas
 
   tt <- translateType finalState typePtr
 
@@ -1514,17 +1520,17 @@ translateMetadata' finalState mp = do
   s <- get
   put s { visitedMetadata = S.insert ip (visitedMetadata s) }
   metaTag <- liftIO $ cMetaTypeTag mp
-  tag <- liftIO $ cMetaTag mp
+
   content <- case metaTag of
     MetaLocation -> do
       line <- liftIO $ cMetaLocationLine mp
       col <- liftIO $ cMetaLocationColumn mp
-      scope <- liftIO $ cMetaLocationScope mp
+--      scope <- liftIO $ cMetaLocationScope mp
 
-      scope' <- maybeTranslateMetadataRec finalState scope
+--      scope' <- maybeTranslateMetadataRec finalState scope
       return MetaSourceLocation { metaSourceRow = line
                                 , metaSourceCol = col
-                                , metaSourceScope = scope'
+                                , metaSourceScope = Nothing --  scope'
                                 }
     MetaDerivedtype -> do
       ctxt <- liftIO $ cMetaTypeContext mp
@@ -1547,6 +1553,8 @@ translateMetadata' finalState mp = do
       ctxt' <- maybeTranslateMetadataRec finalState ctxt
       parent' <- maybeTranslateMetadataRec finalState parent
       -- cu' <- maybeTranslateMetadataRec finalState cu
+
+      tag <- liftIO $ cMetaTag mp
 
       return MetaDWDerivedType { metaDerivedTypeContext = ctxt'
                                , metaDerivedTypeName = name
@@ -1593,6 +1601,8 @@ translateMetadata' finalState mp = do
       ctype' <- maybeTranslateMetadataRec finalState ctype
       tparams' <- maybeTranslateMetadataRec finalState tparams
       -- cu' <- maybeTranslateMetadataRec finalState cu
+
+      tag <- liftIO $ cMetaTag mp
 
       return MetaDWCompositeType { metaCompositeTypeTag = tag
                                  , metaCompositeTypeContext = ctxt'
@@ -1654,6 +1664,8 @@ translateMetadata' finalState mp = do
       ctxt' <- maybeTranslateMetadataRec finalState ctxt
       -- file' <- translateMetadataRec finalState file
       ty' <- maybeTranslateMetadataRec finalState ty
+
+      tag <- liftIO $ cMetaTag mp
 
       return MetaDWLocal { metaLocalTag = tag
                          , metaLocalContext = ctxt'

@@ -373,6 +373,7 @@ struct CValue_t {
   CType *valueType;
   char *name;
   CMeta **md;
+  CMeta *srcLoc;
   int numMetadata;
   int metaCapacity;
 

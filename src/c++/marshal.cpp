@@ -49,6 +49,7 @@ struct PrivateData {
   unordered_map<const Type*, CType*> typeMap;
   unordered_map<const Value*, CValue*> valueMap;
   unordered_map<const MDNode*, CMeta*> metaMap;
+  unordered_map<const DebugLoc*, CMeta*> srcLocMap;
 };
 
 static ValueTag decodeOpcode(unsigned opcode) {
@@ -623,6 +624,9 @@ static MetaTag extractMetaTag(const MDNode *md) {
   if(desc.isTemplateTypeParameter()) return META_TEMPLATETYPEPARAMETER;
   if(desc.isTemplateValueParameter()) return META_TEMPLATEVALUEPARAMETER;
 
+  DILocation loc(md);
+  if(loc.Verify()) return META_LOCATION;
+
   // Otherwise we have no idea what to do with this.  One type of odd
   // metadata is the inline assembly srcloc metadata, which has a
   // strange format.  Right now we don't bother to translate this.  It
@@ -637,14 +641,15 @@ static CValue* translateValue(CModule *m, const Value *v);
 static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb);
 static CMeta* translateMetadata(CModule *m, const MDNode *md);
 
+static void makeMetaSrcLocation(CModule *m, const DebugLoc &loc, CMeta *meta) {
+  meta->u.metaLocationInfo.lineNumber = loc.getLine();
+  meta->u.metaLocationInfo.columnNumber = loc.getCol();
+}
+
 static void makeMetaLocation(CModule *m, const MDNode *md, CMeta *meta) {
   DILocation loc(md);
   meta->u.metaLocationInfo.lineNumber = loc.getLineNumber();
   meta->u.metaLocationInfo.columnNumber = loc.getColumnNumber();
-  meta->u.metaLocationInfo.scope = translateMetadata(m, loc.getScope());
-  meta->u.metaLocationInfo.origLocation = translateMetadata(m, loc.getOrigLocation());
-  meta->u.metaLocationInfo.filename = strdup(loc.getFilename().str().c_str());
-  meta->u.metaLocationInfo.directory = strdup(loc.getDirectory().str().c_str());
 }
 
 static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
@@ -875,6 +880,28 @@ static void makeMetaTemplateValueParameter(CModule *m, const MDNode *md, CMeta *
   meta->u.metaTemplateValueInfo.columnNumber = dt.getColumnNumber();
 }
 
+// Treat source locations specially; keeping them in the general case
+// was causing crashes that I never managed to track down.
+static CMeta* translateSrcLoc(CModule *m, const DebugLoc& loc) {
+  if(loc.isUnknown()) return NULL;
+
+  PrivateData *pd = (PrivateData*)m->privateData;
+  unordered_map<const DebugLoc*,CMeta*>::const_iterator it = pd->srcLocMap.find(&loc);
+  if(it != pd->srcLocMap.end()) {
+    return it->second;
+  }
+  CMeta *meta = (CMeta*)calloc(1, sizeof(CMeta));
+  pd->srcLocMap[&loc] = meta;
+  meta->metaTag = META_LOCATION;
+  // There is no DWARF tag for these source locations.  Just use -1
+  // and be sure not to try to convert it to a DWARF tag later.
+  meta->tag = -1;
+
+  makeMetaSrcLocation(m, loc, meta);
+
+  return meta;
+}
+
 static CMeta* translateMetadata(CModule *m, const MDNode *md) {
   // I expect some metadata fields to be empty (e.g., templateParams).
   // Just propagate nulls.
@@ -882,9 +909,9 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
 
   PrivateData *pd = (PrivateData*)m->privateData;
   unordered_map<const MDNode*,CMeta*>::const_iterator it = pd->metaMap.find(md);
-  if(it != pd->metaMap.end())
+  if(it != pd->metaMap.end()) {
     return it->second;
-
+  }
   CMeta *meta = (CMeta*)calloc(1, sizeof(CMeta));
   pd->metaMap[md] = meta;
   meta->metaTag = extractMetaTag(md);
@@ -1527,18 +1554,15 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
   pd->valueMap[i] = v;
 
   SmallVectorImpl<std::pair<unsigned, MDNode*> > md(0);
-  if(pd->includeLocs) {
-    i->getAllMetadata(md);
-  }
-  else {
-    i->getAllMetadataOtherThanDebugLoc(md);
-  }
+  i->getAllMetadataOtherThanDebugLoc(md);
 
   v->numMetadata = md.size();
   v->md = (CMeta**)calloc(v->numMetadata, sizeof(CMeta*));
   for(int ix = 0; ix < v->numMetadata; ++ix) {
     v->md[ix] = translateMetadata(m, md[ix].second);
   }
+  if(pd->includeLocs)
+    v->srcLoc = translateSrcLoc(m, i->getDebugLoc());
 
   switch(i->getOpcode()) {
     // Terminator instructions
@@ -2363,6 +2387,12 @@ extern "C" {
 
     for(unordered_map<const MDNode*,CMeta*>::iterator it = pd->metaMap.begin(),
           ed = pd->metaMap.end(); it != ed; ++it)
+    {
+      disposeCMeta(it->second);
+    }
+
+    for(unordered_map<const DebugLoc*,CMeta*>::iterator it = pd->srcLocMap.begin(),
+          ed = pd->srcLocMap.end(); it != ed; ++it)
     {
       disposeCMeta(it->second);
     }

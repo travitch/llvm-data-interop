@@ -110,6 +110,8 @@ cTypeAddrSpace t = fromIntegral <$> {#get CType->addrSpace#} t
 
 data CValue
 {#pointer *CValue as ValuePtr -> CValue #}
+data CMeta
+{#pointer *CMeta as MetaPtr -> CMeta #}
 
 cValueTag :: ValuePtr -> IO ValueTag
 cValueTag v = toEnum . fromIntegral <$> ({#get CValue->valueTag#} v)
@@ -130,11 +132,11 @@ cValueName v = do
         _ -> return $! (Just . makeLocalIdentifier) name
 cValueMetadata :: ValuePtr -> IO [MetaPtr]
 cValueMetadata v = peekArray v {#get CValue->md#} {#get CValue->numMetadata#}
+cValueSrcLoc :: ValuePtr -> IO MetaPtr
+cValueSrcLoc = {#get CValue->srcLoc#}
 cValueData :: ValuePtr -> IO (Ptr ())
 cValueData = {#get CValue->data#}
 
-data CMeta
-{#pointer *CMeta as MetaPtr -> CMeta #}
 
 cMetaTypeTag :: MetaPtr -> IO MetaTag
 cMetaTypeTag v = toEnum . fromIntegral <$> {#get CMeta->metaTag #} v
