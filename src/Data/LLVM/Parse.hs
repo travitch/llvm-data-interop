@@ -23,20 +23,24 @@ import Prelude hiding ( catch )
 import Control.Applicative
 import Control.DeepSeq
 import Control.Exception
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.ByteString.Unsafe ( unsafeUseAsCStringLen )
 import Data.IORef
+import Data.HashTable.IO ( BasicHashTable )
 import Data.Map ( Map )
 import Data.Set ( Set )
+import qualified Data.HashTable.IO as HT
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
 import Data.Typeable
+import Data.Word ( Word64 )
 import FileLocation
 import Foreign.Ptr
 import System.IO ( Handle, hSetBinaryMode )
+import System.IO.Unsafe ( unsafePerformIO )
 
 import Data.LLVM.Types
 import Data.LLVM.Internal.Interop
@@ -92,7 +96,7 @@ data TranslationException = TooManyReturnValues
 instance Exception TranslationException
 
 type KnotMonad = StateT KnotState IO
-data KnotState = KnotState { valueMap :: Map IntPtr Value
+data KnotState = KnotState { valueMap :: BasicHashTable Word64 Value
                            , typeMap :: Map IntPtr Type
                            , metaMap :: Map IntPtr Metadata
                            , idSrc :: IORef Int
@@ -115,9 +119,9 @@ instance InternString (StateT KnotState IO) where
         return str
 
 
-emptyState :: IORef Int -> IORef Int -> KnotState
-emptyState r1 r2 =
-  KnotState { valueMap = M.empty
+emptyState :: IORef Int -> IORef Int -> BasicHashTable Word64 Value -> KnotState
+emptyState r1 r2 vm =
+  KnotState { valueMap = vm
             , typeMap = M.empty
             , metaMap = M.empty
             , idSrc = r1
@@ -188,7 +192,8 @@ translateCModule :: ModulePtr -> IO (Either String Module)
 translateCModule m = do
   idref <- newIORef 1
   mref <- newIORef 1
-  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref)
+  valMap <- HT.new
+  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref valMap)
   disposeCModule m
   case result res of
     Just r -> do
@@ -335,9 +340,8 @@ translateType finalState tp = do
 recordValue :: ValuePtr -> Value -> KnotMonad ()
 recordValue vp v = do
   s <- get
-  let key = ptrToIntPtr vp
-      oldMap = valueMap s
-  put s { valueMap = M.insert key v oldMap }
+  let key = fromIntegral $ ptrToIntPtr vp
+  liftIO $ HT.insert (valueMap s) key v
 
 translateAlias :: KnotState -> ValuePtr -> KnotMonad GlobalAlias
 translateAlias finalState vp = do
@@ -682,15 +686,20 @@ isConstant vt = case vt of
 translateConstOrRef :: KnotState -> ValuePtr -> KnotMonad Value
 translateConstOrRef finalState vp = do
   s <- get
-  case M.lookup (ptrToIntPtr vp) (valueMap s) of
+  let key = fromIntegral (ptrToIntPtr vp)
+  existingVal <- liftIO $ HT.lookup (valueMap s) key
+  case existingVal of
     Just v -> return v
     Nothing -> do
       tag <- liftIO $ cValueTag vp
-      let ip = ptrToIntPtr vp
       case isConstant tag of
         True -> Value <$> translateConstant finalState vp
         False ->
-          return $ M.findWithDefault (throw (KnotTyingFailure tag)) ip (valueMap finalState)
+          -- This cheats in the knot tying.  The map is read again
+          -- *after* it has been filled in (since these values are not
+          -- forced until after the whole module is processed)
+          let finalRes = unsafePerformIO $ HT.lookup (valueMap s) key
+          in return (maybe (throw (KnotTyingFailure tag)) id finalRes)
 
 translateArgument :: KnotState -> Function -> ValuePtr -> KnotMonad Argument
 translateArgument finalState finalF vp = do
