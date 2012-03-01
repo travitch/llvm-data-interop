@@ -4,6 +4,10 @@
 -- have the same range as C ints.  In the vast majority of cases this
 -- should not really be an issue, but it is possible to lose
 -- information.  If it is an issue it can be changed.
+--
+-- Note that this uses BasicHashTables as mappings.  Switching to
+-- LinearHashTable has less space overhead but makes performance tank.
+-- Don't be tempted.
 {-# LANGUAGE DeriveDataTypeable, RankNTypes, FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Data.LLVM.Parse (
