@@ -40,6 +40,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
 import Data.Typeable
+import qualified Data.Vector as V
 import Data.Word ( Word64 )
 import FileLocation
 import Foreign.Ptr
@@ -490,7 +491,7 @@ translateFunction finalState vp = do
                 args' <- mapM (translateArgument finalState finalF) args
                 blocks' <- mapM (translateBasicBlock finalState finalF) blocks
                 let f' = Function { functionParameters = args'
-                                  , functionBody = blocks'
+                                  , functionBodyVector = V.fromList blocks'
                                   , functionLinkage = link
                                   , functionVisibility = vis
                                   , functionCC = cc
@@ -745,7 +746,7 @@ translateBasicBlock :: KnotState -> Function -> ValuePtr -> KnotMonad BasicBlock
 translateBasicBlock finalState f vp = do
   tag <- liftIO $ cValueTag vp
   name <- liftIO $ cValueName vp
-  typePtr <- liftIO $ cValueType vp
+  -- typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
 
@@ -755,7 +756,7 @@ translateBasicBlock finalState f vp = do
 
 
   uid <- nextId
-  tt <- translateType finalState typePtr
+  -- tt <- translateType finalState typePtr
 
   let dataPtr' = castPtr dataPtr
   Just realName <- computeRealName name
@@ -766,11 +767,10 @@ translateBasicBlock finalState f vp = do
   -- exist until after the instructions are translated
   bb <- mfix (\finalBB -> do
                  tinsts <- mapM (translateInstruction finalState (Just finalBB)) insts
-                 let block' = BasicBlock { basicBlockType = tt
-                                        , basicBlockName = realName
+                 let block' = BasicBlock { basicBlockName = realName
                                         , basicBlockMetadata = mds
                                         , basicBlockUniqueId = uid
-                                        , basicBlockInstructions = tinsts
+                                        , basicBlockInstructionVector = V.fromList tinsts
                                         , basicBlockFunction = f
                                         }
                  return block')
