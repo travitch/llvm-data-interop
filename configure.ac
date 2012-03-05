@@ -2,7 +2,7 @@ AC_INIT([Haskell LLVM data interoperability], [0.1.0], [travitch@cs.wisc.edu], [
 
 AC_LANG(C++)
 
-AC_CONFIG_SRCDIR([src/Data/LLVM/Internal/Interop.chs])
+AC_CONFIG_SRCDIR([src/LLVM/Internal/Interop.chs])
 
 AC_CONFIG_FILES([llvm-data-interop.buildinfo])
 

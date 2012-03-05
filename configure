@@ -600,7 +600,7 @@ PACKAGE_VERSION='0.1.0'
 PACKAGE_STRING='Haskell LLVM data interoperability 0.1.0'
 PACKAGE_BUGREPORT='travitch@cs.wisc.edu'
 
-ac_unique_file="src/Data/LLVM/Internal/Interop.chs"
+ac_unique_file="src/LLVM/Internal/Interop.chs"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>

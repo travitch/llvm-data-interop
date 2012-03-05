@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, RankNTypes, OverloadedStrings #-}
-module Data.LLVM.Internal.Interop where
+module LLVM.Internal.Interop where
 
 import Control.Applicative
 import Control.Monad ( when )

@@ -10,7 +10,7 @@
 -- Don't be tempted.
 {-# LANGUAGE DeriveDataTypeable, RankNTypes, FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Data.LLVM.Parse (
+module LLVM.Parse (
     -- * Types
   ParserOptions(..),
   PositionPrecision(..),
@@ -48,7 +48,7 @@ import System.IO ( Handle, hSetBinaryMode )
 import System.IO.Unsafe ( unsafePerformIO )
 
 import Data.LLVM.Types
-import Data.LLVM.Internal.Interop
+import LLVM.Internal.Interop
 
 -- | Defines the level of precision of position information in the
 -- metadata.  LLVM gives very precise information, but tracking all of
