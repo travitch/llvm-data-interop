@@ -42,7 +42,7 @@ import Data.Maybe ( catMaybes )
 import Data.Typeable
 import qualified Data.Vector as V
 import Data.Word ( Word64 )
-import FileLocation
+import Debug.Trace.LocationTH
 import Foreign.Ptr
 import System.IO ( Handle, hSetBinaryMode )
 import System.IO.Unsafe ( unsafePerformIO )
@@ -963,10 +963,10 @@ translateInvokeInst finalState dataPtr name tt mds bb = do
 
   let n'' = case valueContent n' of
         BasicBlockC b -> b
-        _ -> $err' "Expected BasicBlock for normal invoke label"
+        _ -> $failure "Expected BasicBlock for normal invoke label"
       u'' = case valueContent u' of
         BasicBlockC b -> b
-        _ -> $err' "Expected BasicBlock for unwind invoke label"
+        _ -> $failure "Expected BasicBlock for unwind invoke label"
 
   return InvokeInst { _instructionName = n
                     , _instructionType = tt

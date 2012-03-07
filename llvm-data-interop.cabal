@@ -20,7 +20,7 @@ library
   default-language: Haskell2010
   build-depends: base > 3 && < 5, array, bytestring, data-default >= 0.3, containers,
                  dwarf, deepseq, mtl > 2, hashable >= 1.1.2.0, llvm-base-types,
-                 file-location >= 0.4.3, hashtables, vector
+                 loch-th >= 0.2, hashtables, vector
   other-modules: LLVM.Internal.Interop
   exposed-modules: LLVM.Parse
   build-tools: c2hs
