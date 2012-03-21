@@ -1793,7 +1793,8 @@ translateMetadata' finalState mp = do
                               }
     MetaArray -> do
       elts <- liftIO $ cMetaArrayElts mp
-      elts' <- mapM (translateMetadataRec finalState) elts
+      elts' <- mapM (maybeTranslateMetadataRec finalState) elts
+
       return $ MetadataList uid elts'
 
     MetaTemplatetypeparameter -> do

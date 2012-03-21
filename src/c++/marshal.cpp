@@ -933,7 +933,7 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
   case META_LEXICALBLOCK: makeMetaLexicalBlock(m, md, meta); break;
   case META_SUBRANGE: makeMetaSubrange(m, md, meta); break;
   case META_ENUMERATOR: makeMetaEnumerator(m, md, meta); break;
-  case META_ARRAY: makeMetaArray(m, md, meta); break;
+//  case META_ARRAY: makeMetaArray(m, md, meta); break;
   case META_TEMPLATETYPEPARAMETER: makeMetaTemplateTypeParameter(m, md, meta); break;
   case META_TEMPLATEVALUEPARAMETER: makeMetaTemplateValueParameter(m, md, meta); break;
   case META_UNKNOWN:
@@ -949,7 +949,6 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
     break;
   }
   }
-
   return meta;
 }
 
@@ -966,8 +965,7 @@ static CMeta* translateMetadataArray(CModule *m, const MDNode *md) {
   CMeta *meta = (CMeta*)calloc(1, sizeof(CMeta));
   pd->metaMap[md] = meta;
   meta->metaTag = META_ARRAY;
-  DIDescriptor desc(md);
-  meta->tag = desc.getTag();
+  meta->tag = 0;
 
   makeMetaArray(m, md, meta);
 

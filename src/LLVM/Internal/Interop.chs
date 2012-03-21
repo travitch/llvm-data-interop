@@ -144,9 +144,15 @@ cMetaTypeTag v = toEnum . fromIntegral <$> {#get CMeta->metaTag #} v
 cMetaTag :: MetaPtr -> IO DW_TAG
 cMetaTag p = dw_tag <$> {#get CMeta->tag#} p
 
-cMetaArrayElts :: MetaPtr -> IO [MetaPtr]
-cMetaArrayElts p =
+cMetaArrayElts :: MetaPtr -> IO [Maybe MetaPtr]
+cMetaArrayElts p = map convertNull <$>
   peekArray p {#get CMeta->u.metaArrayInfo.arrayElts#} {#get CMeta->u.metaArrayInfo.arrayLen#}
+  where
+    convertNull ptr =
+      case ptr == nullPtr of
+        True -> Nothing
+        False -> Just ptr
+
 cMetaEnumeratorName :: InternString m => MetaPtr -> m ByteString
 cMetaEnumeratorName = shareString {#get CMeta->u.metaEnumeratorInfo.enumName#}
 cMetaEnumeratorValue :: MetaPtr -> IO Int64
