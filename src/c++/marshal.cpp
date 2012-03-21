@@ -613,8 +613,8 @@ static MetaTag extractMetaTag(const MDNode *md) {
   if(desc.isVariable()) return META_VARIABLE;
   if(desc.isSubprogram()) return META_SUBPROGRAM;
   if(desc.isGlobalVariable()) return META_GLOBALVARIABLE;
-  if(desc.isDerivedType()) return META_DERIVEDTYPE;
   if(desc.isCompositeType()) return META_COMPOSITETYPE;
+  if(desc.isDerivedType()) return META_DERIVEDTYPE;
   if(desc.isBasicType()) return META_BASICTYPE;
   if(desc.isFile()) return META_FILE;
   if(desc.isCompileUnit()) return META_COMPILEUNIT;
@@ -640,6 +640,7 @@ static CValue* translateConstant(CModule *m, const Constant *c);
 static CValue* translateValue(CModule *m, const Value *v);
 static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb);
 static CMeta* translateMetadata(CModule *m, const MDNode *md);
+static CMeta* translateMetadataArray(CModule *m, const MDNode *md);
 
 static void makeMetaSrcLocation(CModule *m, const DebugLoc &loc, CMeta *meta) {
   meta->u.metaLocationInfo.lineNumber = loc.getLine();
@@ -699,7 +700,7 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
 
-  meta->u.metaTypeInfo.typeArray = translateMetadata(m, dt.getTypeArray());
+  meta->u.metaTypeInfo.typeArray = translateMetadataArray(m, dt.getTypeArray());
   meta->u.metaTypeInfo.runTimeLang = dt.getRunTimeLang();
   meta->u.metaTypeInfo.containingType = translateMetadata(m, dt.getContainingType());
   meta->u.metaTypeInfo.templateParams = translateMetadata(m, dt.getTemplateParams());
@@ -948,6 +949,27 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
     break;
   }
   }
+
+  return meta;
+}
+
+static CMeta* translateMetadataArray(CModule *m, const MDNode *md) {
+  // I expect some metadata fields to be empty (e.g., templateParams).
+  // Just propagate nulls.
+  if(md == NULL) return NULL;
+
+  PrivateData *pd = (PrivateData*)m->privateData;
+  unordered_map<const MDNode*,CMeta*>::const_iterator it = pd->metaMap.find(md);
+  if(it != pd->metaMap.end()) {
+    return it->second;
+  }
+  CMeta *meta = (CMeta*)calloc(1, sizeof(CMeta));
+  pd->metaMap[md] = meta;
+  meta->metaTag = META_ARRAY;
+  DIDescriptor desc(md);
+  meta->tag = desc.getTag();
+
+  makeMetaArray(m, md, meta);
 
   return meta;
 }
