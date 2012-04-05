@@ -399,6 +399,12 @@ typedef struct {
   CValue **functions;
   int numFunctions;
 
+  CMeta **enumMetadata;
+  int numEnumMetadata;
+
+  CMeta **retainedTypeMetadata;
+  int numRetainedTypes;
+
   int hasError;
   char *errMsg;
 

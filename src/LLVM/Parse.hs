@@ -247,6 +247,8 @@ tieKnot m finalState = do
   vars <- liftIO $ cModuleGlobalVariables m
   aliases <- liftIO $ cModuleGlobalAliases m
   funcs <- liftIO $ cModuleFunctions m
+  enumMetaPtrs <- liftIO $ cModuleEnumMetadata m
+  retainedMetaPtrs <- liftIO $ cModuleRetainedTypeMetadata m
 
   (externVs, globalVs) <- partitionM isExternVar vars
   (externFs, globalFs) <- partitionM isExternFunc funcs
@@ -256,6 +258,10 @@ tieKnot m finalState = do
   globalAliases <- mapM (translateAlias finalState) aliases
   definedFuncs <- mapM (translateFunction finalState) globalFs
   externFuncs <- mapM (translateExternalFunction finalState) externFs
+
+  enumMeta <- mapM (translateMetadata finalState) enumMetaPtrs
+  typeMeta <- mapM (translateMetadata finalState) retainedMetaPtrs
+
 
   s <- get
   lastId <- liftIO $ readIORef (idSrc s)
@@ -268,6 +274,8 @@ tieKnot m finalState = do
                   , moduleDefinedFunctions = definedFuncs
                   , moduleExternalValues = externVars
                   , moduleExternalFunctions = externFuncs
+                  , moduleEnumMetadata = enumMeta
+                  , moduleRetainedTypeMetadata = typeMeta
                   , moduleNextId = lastId + 1
                   }
   return s { result = Just ir }

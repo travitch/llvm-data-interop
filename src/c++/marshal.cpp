@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -2296,6 +2297,67 @@ static void attachGlobalMetadata(CModule *m, Module *M) {
   }
 }
 
+static void attachEnumMetadata(CModule *m, Module *M) {
+  // First, try to deal with the old method used by dragonegg 3.0
+  NamedMDNode *enums = M->getNamedMetadata("llvm.dbg.enum");
+  std::set<CMeta*> enumMeta;
+
+  if(enums) {
+    for(unsigned int i = 0; i < enums->getNumOperands(); ++i) {
+      CMeta *md = translateMetadata(m, enums->getOperand(i));
+      if(md)
+        enumMeta.insert(md);
+    }
+
+    m->enumMetadata = (CMeta**)calloc(enumMeta.size(), sizeof(CMeta*));
+    m->numEnumMetadata = enumMeta.size();
+    std::copy(enumMeta.begin(), enumMeta.end(), m->enumMetadata);
+    return;
+  }
+
+  // Otherwise, try the newer format used by clang (and hopefully
+  // newer dragoneggs).
+  NamedMDNode *compUnits = M->getNamedMetadata("llvm.dbg.cu");
+  if(compUnits) {
+    for(unsigned int i = 0; i < compUnits->getNumOperands(); ++i) {
+      DICompileUnit CU(compUnits->getOperand(i));
+      DIArray unitEnums(CU.getEnumTypes());
+      for(unsigned int e = 0; e < unitEnums.getNumElements(); ++e) {
+        CMeta *md = translateMetadata(m, unitEnums.getElement(e));
+        if(md)
+          enumMeta.insert(md);
+      }
+    }
+
+    m->enumMetadata = (CMeta**)calloc(enumMeta.size(), sizeof(CMeta*));
+    m->numEnumMetadata = enumMeta.size();
+    std::copy(enumMeta.begin(), enumMeta.end(), m->enumMetadata);
+    return;
+  }
+}
+
+static void attachRetainedTypeMetadata(CModule *m, Module *M) {
+  // This information is not present in dragonegg, so we just use the
+  // new clang style.
+  NamedMDNode *compUnits = M->getNamedMetadata("llvm.dbg.cu");
+  if(!compUnits) return;
+  std::set<CMeta*> typeMeta;
+
+  for(unsigned int i = 0; i < compUnits->getNumOperands(); ++i) {
+    DICompileUnit CU(compUnits->getOperand(i));
+    DIArray unitTypes(CU.getRetainedTypes());
+    for(unsigned int t = 0; t < unitTypes.getNumElements(); ++t) {
+      CMeta *md = translateMetadata(m, unitTypes.getElement(t));
+      if(md)
+        typeMeta.insert(md);
+    }
+  }
+
+  m->retainedTypeMetadata = (CMeta**)calloc(typeMeta.size(), sizeof(CMeta*));
+  m->numRetainedTypes = typeMeta.size();
+  std::copy(typeMeta.begin(), typeMeta.end(), m->retainedTypeMetadata);
+}
+
 static CModule* marshal(CModule * module) {
   PrivateData *pd = (PrivateData*)module->privateData;
   Module *m = pd->original;
@@ -2359,6 +2421,8 @@ static CModule* marshal(CModule * module) {
     // variables and functions.
     attachFunctionMetadata(module, m);
     attachGlobalMetadata(module, m);
+    attachEnumMetadata(module, m);
+    attachRetainedTypeMetadata(module, m);
   }
   catch(const string &msg) {
     module->hasError = 1;
@@ -2394,6 +2458,8 @@ extern "C" {
     free(m->globalVariables);
     free(m->globalAliases);
     free(m->functions);
+    free(m->enumMetadata);
+    free(m->retainedTypeMetadata);
 
     PrivateData *pd = (PrivateData*)m->privateData;
 
@@ -2420,6 +2486,7 @@ extern "C" {
     {
       disposeCMeta(it->second);
     }
+
 
     // These two are actually allocated with new
     delete pd->original;
