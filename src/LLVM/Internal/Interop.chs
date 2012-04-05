@@ -247,6 +247,14 @@ cMetaCompileUnitFlags :: InternString m => MetaPtr -> m ByteString
 cMetaCompileUnitFlags = shareString {#get CMeta->u.metaCompileUnitInfo.flags#}
 cMetaCompileUnitRuntimeVersion :: MetaPtr -> IO Int32
 cMetaCompileUnitRuntimeVersion p = fromIntegral <$> {#get CMeta->u.metaCompileUnitInfo.runtimeVersion#} p
+cMetaCompileUnitEnumTypes :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaCompileUnitEnumTypes = optionalField {#get CMeta->u.metaCompileUnitInfo.enumTypes#}
+cMetaCompileUnitRetainedTypes :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaCompileUnitRetainedTypes = optionalField {#get CMeta->u.metaCompileUnitInfo.retainedTypes#}
+cMetaCompileUnitSubprograms :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaCompileUnitSubprograms = optionalField {#get CMeta->u.metaCompileUnitInfo.subprograms#}
+cMetaCompileUnitGlobalVariables :: MetaPtr -> IO (Maybe MetaPtr)
+cMetaCompileUnitGlobalVariables = optionalField {#get CMeta->u.metaCompileUnitInfo.globalVariables#}
 cMetaFileFilename :: InternString m => MetaPtr -> m ByteString
 cMetaFileFilename = shareString {#get CMeta->u.metaFileInfo.filename#}
 cMetaFileDirectory :: InternString m => MetaPtr -> m ByteString

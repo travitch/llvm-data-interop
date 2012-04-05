@@ -112,6 +112,10 @@ typedef struct {
   int isOptimized;
   char *flags;
   unsigned runtimeVersion;
+  CMeta *enumTypes;
+  CMeta *retainedTypes;
+  CMeta *subprograms;
+  CMeta *globalVariables;
 } MetaCompileUnitInfo;
 
 typedef struct {

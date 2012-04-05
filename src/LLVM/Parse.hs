@@ -1503,6 +1503,11 @@ maybeTranslateMetadataRec _ Nothing = return Nothing
 maybeTranslateMetadataRec finalState (Just mp) =
   Just <$> translateMetadataRec finalState mp
 
+metadataArrayToList :: Maybe Metadata -> [Maybe Metadata]
+metadataArrayToList (Just (MetadataList _ elts)) = elts
+metadataArrayToList Nothing = []
+metadataArrayToList _ = error "Unexpected non-array metadata"
+
 translateMetadata' :: KnotState -> MetaPtr -> KnotMonad Metadata
 translateMetadata' finalState mp = do
   let ip = ptrToIntPtr mp
@@ -1742,6 +1747,15 @@ translateMetadata' finalState mp = do
       isOpt <- liftIO $ cMetaCompileUnitIsOptimized mp
       flags <- cMetaCompileUnitFlags mp
       rv <- liftIO $ cMetaCompileUnitRuntimeVersion mp
+      ets <- liftIO $ cMetaCompileUnitEnumTypes mp
+      rts <- liftIO $ cMetaCompileUnitRetainedTypes mp
+      sps <- liftIO $ cMetaCompileUnitSubprograms mp
+      gvs <- liftIO $ cMetaCompileUnitGlobalVariables mp
+
+      ets' <- maybeTranslateMetadataRec finalState ets
+      rts' <- maybeTranslateMetadataRec finalState rts
+      sps' <- maybeTranslateMetadataRec finalState sps
+      gvs' <- maybeTranslateMetadataRec finalState gvs
 
       return MetaDWCompileUnit { metaValueUniqueId = uid
                                , metaCompileUnitLanguage = lang
@@ -1752,6 +1766,10 @@ translateMetadata' finalState mp = do
                                , metaCompileUnitIsOpt = isOpt
                                , metaCompileUnitFlags = flags
                                , metaCompileUnitVersion = rv
+                               , metaCompileUnitEnumTypes = metadataArrayToList ets'
+                               , metaCompileUnitRetainedTypes = metadataArrayToList rts'
+                               , metaCompileUnitSubprograms = metadataArrayToList sps'
+                               , metaCompileUnitGlobalVariables = metadataArrayToList gvs'
                                }
     MetaNamespace -> do
       ctxt <- liftIO $ cMetaNamespaceContext mp

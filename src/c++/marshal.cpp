@@ -803,7 +803,7 @@ static void makeMetaFile(CModule *m, const MDNode *md, CMeta *meta) {
   // meta->u.metaFileInfo.compileUnit = translateMetadata(m, df.getCompileUnit());
 }
 
-static void makeMetaCompileUnit(CModule *, const MDNode *md, CMeta *meta) {
+static void makeMetaCompileUnit(CModule *m, const MDNode *md, CMeta *meta) {
   DICompileUnit dc(md);
   meta->u.metaCompileUnitInfo.language = dc.getLanguage();
   meta->u.metaCompileUnitInfo.filename = strdup(dc.getFilename().str().c_str());
@@ -813,6 +813,10 @@ static void makeMetaCompileUnit(CModule *, const MDNode *md, CMeta *meta) {
   meta->u.metaCompileUnitInfo.isOptimized = dc.isOptimized();
   meta->u.metaCompileUnitInfo.flags = strdup(dc.getFlags().str().c_str());
   meta->u.metaCompileUnitInfo.runtimeVersion = dc.getRunTimeVersion();
+  meta->u.metaCompileUnitInfo.enumTypes = translateMetadata(m, dc.getEnumTypes());
+  meta->u.metaCompileUnitInfo.retainedTypes = translateMetadata(m, dc.getRetainedTypes());
+  meta->u.metaCompileUnitInfo.subprograms = translateMetadata(m, dc.getSubprograms());
+  meta->u.metaCompileUnitInfo.globalVariables = translateMetadata(m, dc.getGlobalVariables());
 }
 
 static void makeMetaNamespace(CModule *m, const MDNode *md, CMeta *meta) {
