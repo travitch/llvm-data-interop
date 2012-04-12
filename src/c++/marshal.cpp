@@ -658,7 +658,6 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   DIDerivedType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  // meta->u.metaTypeInfo.compileUnit = translateMetadata(m, dt.getCompileUnit());
   meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
@@ -682,7 +681,6 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   DICompositeType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  // meta->u.metaTypeInfo.compileUnit = translateMetadata(m, dt.getCompileUnit());
   meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
@@ -711,7 +709,6 @@ static void makeMetaBasicType(CModule *m, const MDNode *md, CMeta *meta) {
   DIBasicType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  // meta->u.metaTypeInfo.compileUnit = translateMetadata(m, dt.getCompileUnit());
   meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
@@ -734,7 +731,6 @@ static void makeMetaVariable(CModule *m, const MDNode *md, CMeta *meta) {
   DIVariable dv(md);
   meta->u.metaVariableInfo.context = translateMetadata(m, dv.getContext());
   meta->u.metaVariableInfo.name = strdup(dv.getName().str().c_str());
-  // meta->u.metaVariableInfo.compileUnit = translateMetadata(m, dv.getCompileUnit());
   meta->u.metaVariableInfo.lineNumber = dv.getLineNumber();
   meta->u.metaVariableInfo.argNumber = dv.getArgNumber();
   meta->u.metaVariableInfo.type = translateMetadata(m, dv.getType());
@@ -759,7 +755,6 @@ static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaSubprogramInfo.name = strdup(ds.getName().str().c_str());
   meta->u.metaSubprogramInfo.displayName = strdup(ds.getDisplayName().str().c_str());
   meta->u.metaSubprogramInfo.linkageName = strdup(ds.getLinkageName().str().c_str());
-  // meta->u.metaSubprogramInfo.compileUnit = translateMetadata(m, ds.getCompileUnit());
   meta->u.metaSubprogramInfo.lineNumber = ds.getLineNumber();
   meta->u.metaSubprogramInfo.type = translateMetadata(m, ds.getType());
   meta->u.metaSubprogramInfo.returnTypeName = strdup(ds.getReturnTypeName().str().c_str());
@@ -787,7 +782,6 @@ static void makeMetaGlobalVariable(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaGlobalInfo.name = strdup(dg.getName().str().c_str());
   meta->u.metaGlobalInfo.displayName = strdup(dg.getDisplayName().str().c_str());
   meta->u.metaGlobalInfo.linkageName = strdup(dg.getLinkageName().str().c_str());
-  // meta->u.metaGlobalInfo.compileUnit = translateMetadata(m, dg.getCompileUnit());
   meta->u.metaGlobalInfo.lineNumber = dg.getLineNumber();
   meta->u.metaGlobalInfo.globalType = translateMetadata(m, dg.getType());
   meta->u.metaGlobalInfo.isLocalToUnit = dg.isLocalToUnit();
@@ -801,7 +795,6 @@ static void makeMetaFile(CModule *m, const MDNode *md, CMeta *meta) {
   DIFile df(md);
   meta->u.metaFileInfo.filename = strdup(df.getFilename().str().c_str());
   meta->u.metaFileInfo.directory = strdup(df.getDirectory().str().c_str());
-  // meta->u.metaFileInfo.compileUnit = translateMetadata(m, df.getCompileUnit());
 }
 
 static void makeMetaCompileUnit(CModule *m, const MDNode *md, CMeta *meta) {
@@ -826,7 +819,6 @@ static void makeMetaNamespace(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaNamespaceInfo.name = strdup(dn.getName().str().c_str());
   meta->u.metaNamespaceInfo.directory = strdup(dn.getDirectory().str().c_str());
   meta->u.metaNamespaceInfo.filename = strdup(dn.getFilename().str().c_str());
-  // meta->u.metaNamespaceInfo.compileUnit = translateMetadata(m, dn.getCompileUnit());
   meta->u.metaNamespaceInfo.lineNumber = dn.getLineNumber();
 }
 
@@ -1209,7 +1201,6 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
     know how to convert them to intrinsics.
    */
 
-//  if(const DbgDeclareInst *di = dynamic_cast<const DbgDeclareInst*>(ii)) {
   if(ii->getCalledValue()->getNameStr() == "llvm.dbg.declare") {
     CValue *addr = NULL;
     if(const MDNode *addrWrapper = dyn_cast<const MDNode>(ii->getArgOperand(0))) {
@@ -1246,7 +1237,6 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
     return false;
   }
 
-  // if(const DbgValueInst *di = dynamic_cast<const DbgValueInst*>(ii)) {
   if(ii->getCalledValue()->getNameStr() == "llvm.dbg.value") {
     // In this case, we could see llvm.dbg.value "calls" for updates
     // to parameters.  We should only attach the *first* one we
@@ -1266,7 +1256,6 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
 
       val = translateValue(m, realAddr);
     }
-    // CValue *val = translateValue(m, di->getValue());
 
     if(val->numMetadata == 0) {
       CMeta *md = NULL;
@@ -1276,7 +1265,6 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
 
       if(!md) return false;
 
-      // CMeta *md = translateMetadata(m, di->getVariable());
       val->numMetadata = 1;
       val->md = (CMeta**)calloc(1, sizeof(CMeta*));
       val->md[0] = md;
