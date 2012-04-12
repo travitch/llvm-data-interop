@@ -607,3 +607,9 @@ cLandingPadClauseTypes li = do
 
 -- | Free all of the resources allocated by 'marshalLLVM'
 {#fun disposeCModule { id `ModulePtr' } -> `()' #}
+
+-- Helpers
+
+-- This only seems to be necessary on i386 for some reason.
+cIntConv :: (Integral a, Num b) => a -> b
+cIntConv = fromIntegral
