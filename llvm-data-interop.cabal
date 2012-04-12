@@ -8,13 +8,18 @@ maintainer: travitch@cs.wisc.edu
 category: Data
 build-type: Custom
 cabal-version: >=1.10
+Description: This package converts the LLVM IR (either bitcode files or LLVM
+             assembly) into a Haskell data type (defined in llvm-base-types).
+             The conversion uses the LLVM libraries to read bitcode.  It then
+             traverses the IR and produces a Haskell structure that can be
+             pattern matched against in pure code.
 
--- A longer description of the package.
--- Description:
+             Note that this library only works with LLVM 3.0
 
 extra-source-files: configure,
                     llvm-data-interop.buildinfo.in,
-                    src/c++/marshal.h
+                    src/c++/marshal.h,
+                    README.md
 
 library
   default-language: Haskell2010
