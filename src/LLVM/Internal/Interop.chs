@@ -150,7 +150,11 @@ cMetaTypeTag :: MetaPtr -> IO MetaTag
 cMetaTypeTag v = toEnum . fromIntegral <$> {#get CMeta->metaTag #} v
 
 cMetaTag :: MetaPtr -> IO DW_TAG
-cMetaTag p = dw_tag <$> {#get CMeta->tag#} p
+cMetaTag p = do
+  t <- {#get CMeta->tag#} p
+  case dw_tag t of
+    Nothing -> return DW_TAG_unspecified_type
+    Just t' -> return t'
 
 cMetaArrayElts :: MetaPtr -> IO [Maybe MetaPtr]
 cMetaArrayElts p = map convertNull <$>
