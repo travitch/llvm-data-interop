@@ -14,7 +14,7 @@ Description: This package converts the LLVM IR (either bitcode files or LLVM
              traverses the IR and produces a Haskell structure that can be
              pattern matched against in pure code.
 
-             Note that this library only works with LLVM 3.0
+             Note that this library only works with LLVM 3.1
 
 extra-source-files: configure,
                     llvm-data-interop.buildinfo.in,

@@ -608,12 +608,6 @@ translateInstruction finalState bb vp = do
     ValBranchinst -> translateBranchInst finalState (castPtr dataPtr) mds bb
     ValSwitchinst -> translateSwitchInst finalState (castPtr dataPtr) mds bb
     ValIndirectbrinst -> translateIndirectBrInst finalState (castPtr dataPtr) mds bb
-    ValUnwindinst -> do
-      uid <- nextId
-      return UnwindInst { instructionMetadata = mds
-                        , instructionUniqueId = uid
-                        , instructionBasicBlock = bb
-                        }
     ValUnreachableinst -> do
       uid <- nextId
       return UnreachableInst { instructionMetadata = mds

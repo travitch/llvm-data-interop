@@ -18,6 +18,7 @@
 #include <llvm/Instructions.h>
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
+#include <llvm/Operator.h>
 #include <llvm/Type.h>
 #include <llvm/DerivedTypes.h>
 #include <llvm/ADT/OwningPtr.h>
@@ -60,7 +61,6 @@ static ValueTag decodeOpcode(unsigned opcode) {
   case Instruction::Switch: return VAL_SWITCHINST;
   case Instruction::IndirectBr: return VAL_INDIRECTBRINST;
   case Instruction::Invoke: return VAL_INVOKEINST;
-  case Instruction::Unwind: return VAL_UNWINDINST;
   case Instruction::Resume: return VAL_RESUMEINST;
   case Instruction::Unreachable: return VAL_UNREACHABLEINST;
   case Instruction::Add: return VAL_ADDINST;
@@ -437,7 +437,6 @@ static void disposeData(ValueTag t, void* data) {
     return;
   }
 
-  case VAL_UNWINDINST:
   case VAL_UNREACHABLEINST:
   {
     // No data
@@ -1069,7 +1068,7 @@ static CValue* translateGlobalAlias(CModule *m, const GlobalAlias *ga) {
 
   v->valueTag = VAL_ALIAS;
   v->valueType = translateType(m, ga->getType());
-  v->name = strdup(ga->getNameStr().c_str());
+  v->name = strdup(ga->getName().str().c_str());
 
   CGlobalInfo *gi = (CGlobalInfo*)calloc(1, sizeof(CGlobalInfo));
   v->data = (void*)gi;
@@ -1095,7 +1094,7 @@ static CValue* translateArgument(CModule *m, const Argument *a) {
 
   v->valueTag = VAL_ARGUMENT;
   v->valueType = translateType(m, a->getType());
-  v->name = strdup(a->getNameStr().c_str());
+  v->name = strdup(a->getName().str().c_str());
 
   // Metadata will be attached as instructions are processed (calls to
   // the Debug intrinsics)
@@ -1162,19 +1161,25 @@ static void buildBinaryInst(CModule *m, CValue *v, ValueTag t, const Instruction
   }
 
   ii->flags = ArithNone;
-  if(bi->hasNoUnsignedWrap() && bi->hasNoSignedWrap())
-    ii->flags = ArithBoth;
-  else if(bi->hasNoUnsignedWrap())
-    ii->flags = ArithNUW;
-  else if(bi->hasNoSignedWrap())
-    ii->flags = ArithNSW;
+  // If the operator isn't *really* an overflowing binary operator,
+  // calling hasNoUnsignedWrap causes an assertion failure.  Guard
+  // against leaky abstractions here.
+  if(isa<const OverflowingBinaryOperator>(bi))
+  {
+    if(bi->hasNoUnsignedWrap() && bi->hasNoSignedWrap())
+      ii->flags = ArithBoth;
+    else if(bi->hasNoUnsignedWrap())
+      ii->flags = ArithNUW;
+    else if(bi->hasNoSignedWrap())
+      ii->flags = ArithNSW;
+  }
 }
 
 static void buildInvokeInst(CModule *m, CValue *v, const InvokeInst *ii) {
   v->valueTag = VAL_INVOKEINST;
   v->valueType = translateType(m, ii->getType());
   if(ii->hasName())
-    v->name = strdup(ii->getNameStr().c_str());
+    v->name = strdup(ii->getName().str().c_str());
 
   CCallInfo *ci = (CCallInfo*)calloc(1, sizeof(CCallInfo));
   v->data = (void*)ci;
@@ -1201,7 +1206,7 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
     know how to convert them to intrinsics.
    */
 
-  if(ii->getCalledValue()->getNameStr() == "llvm.dbg.declare") {
+  if(ii->getCalledValue()->getName().str() == "llvm.dbg.declare") {
     CValue *addr = NULL;
     if(const MDNode *addrWrapper = dyn_cast<const MDNode>(ii->getArgOperand(0))) {
       const Value* realAddr = addrWrapper->getOperand(0);
@@ -1237,7 +1242,7 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
     return false;
   }
 
-  if(ii->getCalledValue()->getNameStr() == "llvm.dbg.value") {
+  if(ii->getCalledValue()->getName().str() == "llvm.dbg.value") {
     // In this case, we could see llvm.dbg.value "calls" for updates
     // to parameters.  We should only attach the *first* one we
     // encounter, which will be the one describing parameters or
@@ -1276,7 +1281,7 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
   v->valueTag = VAL_CALLINST;
   v->valueType = translateType(m, ii->getType());
   if(ii->hasName())
-    v->name = strdup(ii->getNameStr().c_str());
+    v->name = strdup(ii->getName().str().c_str());
 
   CCallInfo *ci = (CCallInfo*)calloc(1, sizeof(CCallInfo));
   v->data = (void*)ci;
@@ -1299,7 +1304,7 @@ static void buildAllocaInst(CModule *m, CValue *v, const AllocaInst *ai) {
   v->valueTag = VAL_ALLOCAINST;
   v->valueType = translateType(m, ai->getType());
   if(ai->hasName())
-    v->name = strdup(ai->getNameStr().c_str());
+    v->name = strdup(ai->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1317,7 +1322,7 @@ static void buildLoadInst(CModule *m, CValue *v, const LoadInst *li) {
   v->valueTag = VAL_LOADINST;
   v->valueType = translateType(m, li->getType());
   if(li->hasName())
-    v->name = strdup(li->getNameStr().c_str());
+    v->name = strdup(li->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1337,7 +1342,7 @@ static void buildStoreInst(CModule *m, CValue *v, const StoreInst *si) {
   v->valueTag = VAL_STOREINST;
   v->valueType = translateType(m, si->getType());
   if(si->hasName())
-    v->name = strdup(si->getNameStr().c_str());
+    v->name = strdup(si->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1358,7 +1363,7 @@ static void buildGEPInst(CModule *m, CValue *v, const GetElementPtrInst *gi) {
   v->valueTag = VAL_GETELEMENTPTRINST;
   v->valueType = translateType(m, gi->getType());
   if(gi->hasName())
-    v->name = strdup(gi->getNameStr().c_str());
+    v->name = strdup(gi->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1379,7 +1384,7 @@ static void buildCastInst(CModule *m, CValue *v, ValueTag t, const Instruction *
   v->valueTag = t;
   v->valueType = translateType(m, ci->getType());
   if(ci->hasName())
-    v->name = strdup(ci->getNameStr().c_str());
+    v->name = strdup(ci->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1397,7 +1402,7 @@ static void buildCmpInst(CModule *m, CValue *v, ValueTag t, const Instruction *i
   v->valueTag = t;
   v->valueType = translateType(m, ci->getType());
   if(ci->hasName())
-    v->name = strdup(ci->getNameStr().c_str());
+    v->name = strdup(ci->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1415,7 +1420,7 @@ static void buildPHINode(CModule *m, CValue *v, const PHINode* n) {
   v->valueTag = VAL_PHINODE;
   v->valueType = translateType(m, n->getType());
   if(n->hasName())
-    v->name = strdup(n->getNameStr().c_str());
+    v->name = strdup(n->getName().str().c_str());
 
   CPHIInfo *pi = (CPHIInfo*)calloc(1, sizeof(CPHIInfo));
   v->data = (void*)pi;
@@ -1480,7 +1485,7 @@ static void buildVAArgInst(CModule *m, CValue *v, const VAArgInst *vi) {
   v->valueTag = VAL_VAARGINST;
   v->valueType = translateType(m, vi->getType());
   if(vi->hasName())
-    v->name = strdup(vi->getNameStr().c_str());
+    v->name = strdup(vi->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1497,7 +1502,7 @@ static void buildLandingPadInst(CModule *m, CValue *v, const LandingPadInst *li)
   v->valueType = translateType(m, li->getType());
 
   if(li->hasName())
-    v->name = strdup(li->getNameStr().c_str());
+    v->name = strdup(li->getName().str().c_str());
 
   CLandingPadInfo *ii = (CLandingPadInfo*)calloc(1, sizeof(CLandingPadInfo));
   v->data = (void*)ii;
@@ -1518,7 +1523,7 @@ static void buildExtractValueInst(CModule *m, CValue *v, const ExtractValueInst 
   v->valueTag = VAL_EXTRACTVALUEINST;
   v->valueType = translateType(m, ei->getType());
   if(ei->hasName())
-    v->name = strdup(ei->getNameStr().c_str());
+    v->name = strdup(ei->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1540,7 +1545,7 @@ static void buildInsertValueInst(CModule *m, CValue *v, const InsertValueInst *e
   v->valueTag = VAL_INSERTVALUEINST;
   v->valueType = translateType(m, ei->getType());
   if(ei->hasName())
-    v->name = strdup(ei->getNameStr().c_str());
+    v->name = strdup(ei->getName().str().c_str());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1557,6 +1562,16 @@ static void buildInsertValueInst(CModule *m, CValue *v, const InsertValueInst *e
   std::copy(ei->idx_begin(), ei->idx_end(), ii->indices);
 }
 
+namespace {
+  class TinyVector : public SmallVectorImpl<std::pair<unsigned, MDNode*> > {
+  public:
+    TinyVector(unsigned int i)
+    :SmallVectorImpl<std::pair<unsigned, MDNode*> >(i)
+    {
+    }
+  };
+}
+
 static CValue* translateInstruction(CModule *m, const Instruction *i) {
   PrivateData *pd = (PrivateData*)m->privateData;
   unordered_map<const Value*, CValue*>::iterator it = pd->valueMap.find(i);
@@ -1566,7 +1581,7 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
   CValue *v = (CValue*)calloc(1, sizeof(CValue));
   pd->valueMap[i] = v;
 
-  SmallVectorImpl<std::pair<unsigned, MDNode*> > md(0);
+  TinyVector md(0);
   i->getAllMetadataOtherThanDebugLoc(md);
 
   v->numMetadata = md.size();
@@ -1593,9 +1608,6 @@ static CValue* translateInstruction(CModule *m, const Instruction *i) {
     break;
   case Instruction::Invoke:
     buildInvokeInst(m, v, dyn_cast<const InvokeInst>(i));
-    break;
-  case Instruction::Unwind:
-    buildSimpleInst(m, v, VAL_UNWINDINST, i);
     break;
   case Instruction::Unreachable:
     buildSimpleInst(m, v, VAL_UNREACHABLEINST, i);
@@ -1819,7 +1831,7 @@ static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb) {
   v->valueTag = VAL_BASICBLOCK;
   v->valueType = translateType(m, bb->getType());
   if(bb->hasName())
-    v->name = strdup(bb->getNameStr().c_str());
+    v->name = strdup(bb->getName().str().c_str());
 
   // No metadata for these
 
@@ -1858,7 +1870,7 @@ static CValue* translateFunction(CModule *m, const Function *f) {
 
   v->valueTag = VAL_FUNCTION;
   v->valueType = translateType(m, f->getFunctionType());
-  v->name = strdup(f->getNameStr().c_str());
+  v->name = strdup(f->getName().str().c_str());
 
   CFunctionInfo *fi = (CFunctionInfo*)calloc(1, sizeof(CFunctionInfo));
   v->data = (void*)fi;
@@ -1907,7 +1919,7 @@ static CValue* translateGlobalVariable(CModule *m, const GlobalVariable *gv) {
   v->valueTag = VAL_GLOBALVARIABLE;
   v->valueType = translateType(m, gv->getType());
   if(gv->hasName())
-    v->name = strdup(gv->getNameStr().c_str());
+    v->name = strdup(gv->getName().str().c_str());
 
   CGlobalInfo *gi = (CGlobalInfo*)calloc(1, sizeof(CGlobalInfo));
   v->data = (void*)gi;
@@ -1935,7 +1947,7 @@ static CValue* translateInlineAsm(CModule *m, const InlineAsm* a) {
   v->valueTag = VAL_INLINEASM;
   v->valueType = translateType(m, a->getType());
   if(a->hasName())
-    v->name = strdup(a->getNameStr().c_str());
+    v->name = strdup(a->getName().str().c_str());
 
   CInlineAsmInfo *ii = (CInlineAsmInfo*)calloc(1, sizeof(CInlineAsmInfo));
   v->data = (void*)ii;
@@ -2010,7 +2022,10 @@ static CValue* translateConstantFP(CModule *m, const ConstantFP *fp) {
   CConstFP *d = (CConstFP*)calloc(1, sizeof(CConstFP));
   v->data = (void*)d;
 
-  d->val = fp->getValueAPF().convertToDouble();
+  APFloat apf = fp->getValueAPF();
+  bool b;
+  apf.convert(APFloat::IEEEdouble, APFloat::rmTowardZero, &b);
+  d->val = apf.convertToDouble();
 
   return v;
 }
@@ -2023,7 +2038,7 @@ static CValue* translateBlockAddress(CModule *m, const BlockAddress *ba) {
   v->valueTag = VAL_BLOCKADDRESS;
   v->valueType = translateType(m, ba->getType());
   if(ba->hasName())
-    v->name = strdup(ba->getNameStr().c_str());
+    v->name = strdup(ba->getName().str().c_str());
 
   CBlockAddrInfo *i = (CBlockAddrInfo*)calloc(1, sizeof(CBlockAddrInfo));
   v->data = (void*)i;
@@ -2042,7 +2057,7 @@ static CValue* translateConstantAggregate(CModule *m, ValueTag t, const Constant
   v->valueTag = t;
   v->valueType = translateType(m, ca->getType());
   if(ca->hasName())
-    v->name = strdup(ca->getNameStr().c_str());
+    v->name = strdup(ca->getName().str().c_str());
 
   CConstAggregate *a = (CConstAggregate*)calloc(1, sizeof(CConstAggregate));
   v->data = (void*)a;
@@ -2060,6 +2075,30 @@ static CValue* translateConstantAggregate(CModule *m, ValueTag t, const Constant
   return v;
 }
 
+static CValue* translateConstantData(CModule *m, const ConstantDataSequential *cd) {
+  PrivateData *pd = (PrivateData*)m->privateData;
+  CValue *v = (CValue*)calloc(1, sizeof(CValue));
+  pd->valueMap[cd] = v;
+
+  v->valueTag = VAL_CONSTANTARRAY;
+  v->valueType = translateType(m, cd->getType());
+  if(cd->hasName())
+    v->name = strdup(cd->getName().str().c_str());
+
+  CConstAggregate *a = (CConstAggregate*)calloc(1, sizeof(CConstAggregate));
+  v->data = (void*)a;
+
+  a->numElements = cd->getNumElements();
+  a->constants = (CValue**)calloc(a->numElements, sizeof(CValue*));
+
+  int idx = 0;
+  for(int idx = 0; idx < a->numElements; ++idx) {
+    a->constants[idx] = translateConstant(m, cd->getElementAsConstant(idx));
+  }
+
+  return v;
+}
+
 static CValue* translateConstantExpr(CModule *m, const ConstantExpr *ce) {
   PrivateData *pd = (PrivateData*)m->privateData;
   CValue *v = (CValue*)calloc(1, sizeof(CValue));
@@ -2068,7 +2107,7 @@ static CValue* translateConstantExpr(CModule *m, const ConstantExpr *ce) {
   v->valueTag = VAL_CONSTANTEXPR;
   v->valueType = translateType(m, ce->getType());
   if(ce->hasName())
-    v->name = strdup(ce->getNameStr().c_str());
+    v->name = strdup(ce->getName().str().c_str());
 
   CConstExprInfo *ci = (CConstExprInfo*)calloc(1, sizeof(CConstExprInfo));
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
@@ -2123,6 +2162,10 @@ static CValue* translateConstant(CModule *m, const Constant *c) {
 
   if(const ConstantArray *ca = dyn_cast<const ConstantArray>(c)) {
     return translateConstantAggregate(m, VAL_CONSTANTARRAY, ca);
+  }
+
+  if(const ConstantDataSequential *cd = dyn_cast<const ConstantDataSequential>(c)) {
+    return translateConstantData(m, cd);
   }
 
   if(const ConstantVector *cv = dyn_cast<const ConstantVector>(c)) {

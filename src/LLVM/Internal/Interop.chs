@@ -388,15 +388,7 @@ shareString accessor ptr = do
   when (sp == nullPtr) (error "Null ptr in string")
   str <- liftIO $ BS.packCString sp
   internString str
-  {-
-  s <- get
-  let cache = stringCache s
-  case M.lookup str cache of
-    Just cval -> return cval
-    Nothing -> do
-      put s { stringCache = M.insert str str cache }
-      return str
--}
+
 data CGlobalInfo
 {#pointer *CGlobalInfo as GlobalInfoPtr -> CGlobalInfo #}
 cGlobalIsExternal :: GlobalInfoPtr -> IO Bool

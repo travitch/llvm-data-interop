@@ -2458,7 +2458,7 @@ else
   llvm_bindir="$llvm_prefix/bin"
 fi
 
-for ac_prog in llvm-config-3.0 llvm-config
+for ac_prog in llvm-config-3.1 llvm-config
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
