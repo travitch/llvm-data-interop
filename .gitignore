@@ -4,3 +4,4 @@
 config.log
 config.status
 llvm.buildinfo
+/llvm-data-interop.buildinfo
