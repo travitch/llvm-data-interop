@@ -97,6 +97,7 @@ data TranslationException = TooManyReturnValues
                           | InvalidBranchTarget Value
                           | InvalidSwitchTarget Value
                           | InvalidResumeInst !Int
+                          | InvalidDataLayout ByteString String
                           deriving (Show, Typeable)
 instance Exception TranslationException
 
@@ -265,20 +266,24 @@ tieKnot m finalState = do
 
   s <- get
   lastId <- liftIO $ readIORef (idSrc s)
-  let ir = Module { moduleIdentifier = modIdent
-                  , moduleDataLayout = dataLayout
-                  , moduleTarget = triple
-                  , moduleAssembly = Assembly inlineAsm
-                  , moduleAliases = globalAliases
-                  , moduleGlobalVariables = globalVars
-                  , moduleDefinedFunctions = definedFuncs
-                  , moduleExternalValues = externVars
-                  , moduleExternalFunctions = externFuncs
-                  , moduleEnumMetadata = enumMeta
-                  , moduleRetainedTypeMetadata = typeMeta
-                  , moduleNextId = lastId + 1
-                  }
-  return s { result = Just ir }
+  case parseDataLayout dataLayout of
+    Left err -> throw (InvalidDataLayout dataLayout err)
+    Right dl -> do
+      let ir = Module { moduleIdentifier = modIdent
+                      , moduleDataLayoutString = dataLayout
+                      , moduleDataLayout = dl
+                      , moduleTarget = triple
+                      , moduleAssembly = Assembly inlineAsm
+                      , moduleAliases = globalAliases
+                      , moduleGlobalVariables = globalVars
+                      , moduleDefinedFunctions = definedFuncs
+                      , moduleExternalValues = externVars
+                      , moduleExternalFunctions = externFuncs
+                      , moduleEnumMetadata = enumMeta
+                      , moduleRetainedTypeMetadata = typeMeta
+                      , moduleNextId = lastId + 1
+                      }
+      return s { result = Just ir }
 
 translateType :: KnotState -> TypePtr -> KnotMonad Type
 translateType finalState tp = do
