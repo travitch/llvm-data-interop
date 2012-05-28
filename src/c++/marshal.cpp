@@ -2091,7 +2091,6 @@ static CValue* translateConstantData(CModule *m, const ConstantDataSequential *c
   a->numElements = cd->getNumElements();
   a->constants = (CValue**)calloc(a->numElements, sizeof(CValue*));
 
-  int idx = 0;
   for(int idx = 0; idx < a->numElements; ++idx) {
     a->constants[idx] = translateConstant(m, cd->getElementAsConstant(idx));
   }
