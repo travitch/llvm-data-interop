@@ -39,6 +39,7 @@ import qualified Data.HashTable.IO as HT
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
+import Data.Monoid
 import Data.Typeable
 import qualified Data.Vector as V
 import Data.Word ( Word64 )
@@ -104,7 +105,7 @@ instance Exception TranslationException
 type KnotMonad = StateT KnotState IO
 data KnotState = KnotState { valueMap :: BasicHashTable Word64 Value
                            , typeMap :: Map IntPtr Type
-                           , metaMap :: Map IntPtr Metadata
+                           , metaMap :: BasicHashTable Word64 Metadata
                            , idSrc :: IORef Int
                            , metaIdSrc :: IORef Int
                            , result :: Maybe Module
@@ -125,18 +126,22 @@ instance InternString (StateT KnotState IO) where
         return str
 
 
-emptyState :: IORef Int -> IORef Int -> BasicHashTable Word64 Value -> KnotState
-emptyState r1 r2 vm =
+emptyState :: IORef Int
+              -> IORef Int
+              -> BasicHashTable Word64 Value
+              -> BasicHashTable Word64 Metadata
+              -> KnotState
+emptyState r1 r2 vm mm =
   KnotState { valueMap = vm
-            , typeMap = M.empty
-            , metaMap = M.empty
+            , typeMap = mempty
+            , metaMap = mm
             , idSrc = r1
             , metaIdSrc = r2
             , result = Nothing
-            , visitedTypes = S.empty
-            , visitedMetadata = S.empty
+            , visitedTypes = mempty
+            , visitedMetadata = mempty
             , localId = 0
-            , stringCache = M.empty
+            , stringCache = mempty
             }
 
 genId :: (KnotState -> IORef Int) -> KnotMonad Int
@@ -199,7 +204,8 @@ translateCModule m = do
   idref <- newIORef 1
   mref <- newIORef 1
   valMap <- HT.new
-  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref valMap)
+  mmMap <- HT.new
+  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref valMap mmMap)
   disposeCModule m
   case result res of
     Just r -> do
@@ -701,13 +707,15 @@ translateConstOrRef finalState vp = do
     Nothing -> do
       tag <- liftIO $ cValueTag vp
       case isConstant tag of
+        -- translateConstant handles making the hash table entry for
+        -- this pointer
         True -> Value <$> translateConstant finalState vp
-        False ->
+        False -> do
           -- This cheats in the knot tying.  The map is read again
           -- *after* it has been filled in (since these values are not
           -- forced until after the whole module is processed)
           let finalRes = unsafePerformIO $ HT.lookup (valueMap s) key
-          in return (maybe (throw (KnotTyingFailure tag)) id finalRes)
+          return (maybe (throw (KnotTyingFailure tag)) id finalRes)
 
 translateArgument :: KnotState -> Function -> ValuePtr -> KnotMonad Argument
 translateArgument finalState finalF vp = do
@@ -753,7 +761,6 @@ translateBasicBlock :: KnotState -> Function -> ValuePtr -> KnotMonad BasicBlock
 translateBasicBlock finalState f vp = do
   tag <- liftIO $ cValueTag vp
   name <- liftIO $ cValueName vp
-  -- typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
 
@@ -763,7 +770,6 @@ translateBasicBlock finalState f vp = do
 
 
   uid <- nextId
-  -- tt <- translateType finalState typePtr
 
   let dataPtr' = castPtr dataPtr
   Just realName <- computeRealName name
@@ -1484,8 +1490,11 @@ translateMetadata :: KnotState -> MetaPtr -> KnotMonad Metadata
 translateMetadata finalState mp = do
   s <- get
   let ip = ptrToIntPtr mp
+      key = fromIntegral ip
   put s { visitedMetadata = S.insert ip (visitedMetadata s) }
-  case M.lookup ip (metaMap s) of
+
+  existingVal <- liftIO $ HT.lookup (metaMap s) key
+  case existingVal of
     Just m -> return m
     Nothing -> translateMetadata' finalState mp
 
@@ -1503,7 +1512,10 @@ translateMetadataRec finalState mp = do
   -- visited set and then do the translation.
   case S.member ip (visitedMetadata s) of
     False -> translateMetadata finalState mp
-    True -> return $ M.findWithDefault (throw MetaKnotFailure) ip (metaMap finalState)
+    True -> do
+      let key = fromIntegral ip
+          finalVal = unsafePerformIO (HT.lookup (metaMap finalState) key)
+      return $ maybe (throw MetaKnotFailure) id finalVal
 
 maybeTranslateMetadataRec :: KnotState -> Maybe MetaPtr -> KnotMonad (Maybe Metadata)
 maybeTranslateMetadataRec _ Nothing = return Nothing
@@ -1863,5 +1875,5 @@ translateMetadata' finalState mp = do
       return $! MetadataUnknown uid repr
 
   st <- get
-  put st { metaMap = M.insert ip md (metaMap st) }
+  liftIO $ HT.insert (metaMap st) (fromIntegral ip) md
   return md
