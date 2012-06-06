@@ -287,6 +287,7 @@ tieKnot m finalState = do
                       , moduleExternalFunctions = externFuncs
                       , moduleEnumMetadata = enumMeta
                       , moduleRetainedTypeMetadata = typeMeta
+                      , moduleRetainedTypes = M.elems (typeMap finalState)
                       , moduleNextId = lastId + 1
                       }
       return s { result = Just ir }
