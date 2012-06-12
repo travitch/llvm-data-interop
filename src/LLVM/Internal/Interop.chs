@@ -1,10 +1,15 @@
-{-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, RankNTypes, OverloadedStrings #-}
+{-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, RankNTypes, OverloadedStrings, CPP #-}
 module LLVM.Internal.Interop where
 
 import Control.Applicative
 import Control.Monad ( when )
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Data.Array.Storable ( getElems, unsafeForeignPtrToStorableArray )
+import Data.Array.Storable ( getElems )
+#if __GLASGOW_HASKELL__ >= 704
+import Data.Array.Unsafe ( unsafeForeignPtrToStorableArray )
+#else
+import Data.Array.Storable ( unsafeForeignPtrToStorableArray )
+#endif
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Int
