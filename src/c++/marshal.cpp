@@ -2447,6 +2447,17 @@ static CModule* marshal(CModule * module) {
     module->globalAliases = (CValue**)calloc(module->numGlobalAliases, sizeof(CValue*));
     std::copy(globalAliases.begin(), globalAliases.end(), module->globalAliases);
 
+    std::vector<CType*> typeVec;
+    for(unordered_map<const Type*, CType*>::const_iterator it = pd->typeMap.begin(),
+          ed = pd->typeMap.end(); it != ed; ++it)
+    {
+      typeVec.push_back(it->second);
+    }
+    module->numTypes = typeVec.size();
+    module->types = (CType**)calloc(module->numTypes, sizeof(CType*));
+
+    std::copy(typeVec.begin(), typeVec.end(), module->types);
+
     // Now process the global metadata to attach metadata to global
     // variables and functions.
     attachFunctionMetadata(module, m);

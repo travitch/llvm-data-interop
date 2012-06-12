@@ -399,6 +399,9 @@ typedef struct {
   CValue **functions;
   int numFunctions;
 
+  CType **types;
+  int numTypes;
+
   CMeta **enumMetadata;
   int numEnumMetadata;
 

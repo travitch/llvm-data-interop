@@ -50,6 +50,7 @@ import System.IO.Unsafe ( unsafePerformIO )
 
 import Data.LLVM.Types
 import LLVM.Internal.Interop
+import LLVM.Internal.TypeUnification
 
 -- | Defines the level of precision of position information in the
 -- metadata.  LLVM gives very precise information, but tracking all of
@@ -104,7 +105,7 @@ instance Exception TranslationException
 
 type KnotMonad = StateT KnotState IO
 data KnotState = KnotState { valueMap :: BasicHashTable Word64 Value
-                           , typeMap :: Map IntPtr Type
+                           , typeMap :: BasicHashTable Word64 Type
                            , metaMap :: BasicHashTable Word64 Metadata
                            , idSrc :: IORef Int
                            , metaIdSrc :: IORef Int
@@ -130,10 +131,11 @@ emptyState :: IORef Int
               -> IORef Int
               -> BasicHashTable Word64 Value
               -> BasicHashTable Word64 Metadata
+              -> BasicHashTable Word64 Type
               -> KnotState
-emptyState r1 r2 vm mm =
+emptyState r1 r2 vm mm tm =
   KnotState { valueMap = vm
-            , typeMap = mempty
+            , typeMap = tm
             , metaMap = mm
             , idSrc = r1
             , metaIdSrc = r2
@@ -205,7 +207,22 @@ translateCModule m = do
   mref <- newIORef 1
   valMap <- HT.new
   mmMap <- HT.new
-  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref valMap mmMap)
+
+  -- Do a preliminary pass over all of the types in the Module.  This
+  -- pass will unify structurally identical types (and basically
+  -- ignore opaque types).  This step should happen in llvm-link, but
+  -- that seems to miss many trivial cases.
+  --
+  -- The result of the unification step will be a map of CType -> Type
+  -- to be used in the IR translation.
+  --
+  -- Note that this up-front type translation will make the IR
+  -- translation simpler since there will be no type knot.  This also
+  -- means that
+  modTypes <- cModuleTypes m
+  tyMap <- unifyTypes modTypes
+
+  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref valMap mmMap tyMap)
   disposeCModule m
   case result res of
     Just r -> do
@@ -269,8 +286,8 @@ tieKnot m finalState = do
   enumMeta <- mapM (translateMetadata finalState) enumMetaPtrs
   typeMeta <- mapM (translateMetadata finalState) retainedMetaPtrs
 
-
   s <- get
+  tm <- liftIO $ HT.toList (typeMap s)
   lastId <- liftIO $ readIORef (idSrc s)
   case parseDataLayout dataLayout of
     Left err -> throw (InvalidDataLayout dataLayout err)
@@ -287,80 +304,22 @@ tieKnot m finalState = do
                       , moduleExternalFunctions = externFuncs
                       , moduleEnumMetadata = enumMeta
                       , moduleRetainedTypeMetadata = typeMeta
-                      , moduleRetainedTypes = M.elems (typeMap finalState)
+                      , moduleRetainedTypes = unique $ map snd tm
                       , moduleNextId = lastId + 1
                       }
       return s { result = Just ir }
 
-translateType :: KnotState -> TypePtr -> KnotMonad Type
-translateType finalState tp = do
-  s <- get
-  let ip = ptrToIntPtr tp
-      visTys = visitedTypes s
+unique :: (Ord a) => [a] -> [a]
+unique = S.toList . S.fromList
 
-  tag <- liftIO $ cTypeTag tp
-
-  case S.member ip visTys of
-    -- We have visited this type before, so look it up in the final
-    -- state lazily.
-    True -> do
-      let finalTypeMap = typeMap finalState
-          ex = throw (TypeKnotTyingFailure tag)
-      return $ M.findWithDefault ex ip finalTypeMap
-    -- We haven't seen this yet, so build a type for it
-    False -> do
-      put s { visitedTypes = S.insert ip visTys }
-      t <- case tag of
-        TYPE_VOID -> return TypeVoid
-        TYPE_FLOAT -> return TypeFloat
-        TYPE_DOUBLE -> return TypeDouble
-        TYPE_X86_FP80 -> return TypeX86FP80
-        TYPE_FP128 -> return TypeFP128
-        TYPE_PPC_FP128 -> return TypePPCFP128
-        TYPE_LABEL -> return TypeLabel
-        TYPE_METADATA -> return TypeMetadata
-        TYPE_X86_MMX -> return TypeX86MMX
-        TYPE_INTEGER -> do
-          sz <- liftIO $ cTypeSize tp
-          return $ TypeInteger sz
-        TYPE_FUNCTION -> do
-          isVa <- liftIO $ cTypeIsVarArg tp
-          rtp <- liftIO $ cTypeInner tp
-          argTypePtrs <- liftIO $ cTypeList tp
-
-          rType <- translateType finalState rtp
-          argTypes <- mapM (translateType finalState) argTypePtrs
-
-          return $ TypeFunction rType argTypes isVa
-        TYPE_ARRAY -> do
-          sz <- liftIO $ cTypeSize tp
-          itp <- liftIO $ cTypeInner tp
-          innerType <- translateType finalState itp
-
-          return $ TypeArray sz innerType
-        TYPE_POINTER -> do
-          itp <- liftIO $ cTypeInner tp
-          addrSpc <- liftIO $ cTypeAddrSpace tp
-          innerType <- translateType finalState itp
-
-          return $ TypePointer innerType addrSpc
-        TYPE_VECTOR -> do
-          sz <- liftIO $ cTypeSize tp
-          itp <- liftIO $ cTypeInner tp
-          innerType <- translateType finalState itp
-
-          return $ TypeVector sz innerType
-        TYPE_STRUCT -> do
-          isPacked <- liftIO $ cTypeIsPacked tp
-          ptrs <- liftIO $ cTypeList tp
-          name <- liftIO $ cTypeName tp
-
-          types <- mapM (translateType finalState) ptrs
-
-          return $ TypeStruct name types isPacked
-      s' <- get
-      put s' { typeMap = M.insert ip t (typeMap s') }
-      return t
+translateType :: TypePtr -> KnotMonad Type
+translateType tp = do
+  tm <- gets typeMap
+  let ip = fromIntegral $ ptrToIntPtr tp
+  res <- liftIO $ HT.lookup tm ip
+  case res of
+    Nothing -> $failure ("No translation for type " ++ show tp)
+    Just t -> return t
 
 recordValue :: ValuePtr -> Value -> KnotMonad ()
 recordValue vp v = do
@@ -402,7 +361,7 @@ translateExternalVariable finalState vp = do
   Just name <- liftIO $ cValueName vp
   typePtr <- liftIO $ cValueType vp
   metaPtr <- liftIO $ cValueMetadata vp
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   mds <- mapM (translateMetadata finalState) metaPtr
   uid <- nextId
@@ -422,7 +381,7 @@ translateGlobalVariable finalState vp = do
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   mds <- mapM (translateMetadata finalState) metaPtr
   uid <- nextId
@@ -462,7 +421,7 @@ translateExternalFunction finalState vp = do
   Just name <- liftIO $ cValueName vp
   typePtr <- liftIO $ cValueType vp
   metaPtr <- liftIO $ cValueMetadata vp
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   mds <- mapM (translateMetadata finalState) metaPtr
 
@@ -489,7 +448,7 @@ translateFunction finalState vp = do
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   mds <- mapM (translateMetadata finalState) metaPtr
 
@@ -535,7 +494,7 @@ translateConstant finalState vp = do
   tag <- liftIO $ cValueTag vp
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   constant <- case tag of
     ValInlineasm -> translateInlineAsm finalState (castPtr dataPtr) tt
@@ -593,8 +552,17 @@ computeRealName name = do
 -- instructions (to match the numbering used by llvm).  Unfortunately,
 -- checking whether or not t is void here collapses the knot we are
 -- tying too soon and crashes the program.
+--
+-- FIXME: We can now fix this since the type knot is already tied by
+-- the time we get here.
 computeNameIfNotVoid :: Maybe Identifier -> Type -> KnotMonad (Maybe Identifier)
 computeNameIfNotVoid mid _ = computeRealName mid
+{-
+computeNameIfNotVoid mid t =
+  case t of
+    TypeVoid -> return Nothing
+    _ -> computeRealName mid
+-}
 
 
 translateInstruction :: KnotState -> Maybe BasicBlock -> ValuePtr -> KnotMonad Instruction
@@ -613,7 +581,7 @@ translateInstruction finalState bb vp = do
       srcLoc <- translateMetadata finalState srcLocPtr
       return $ srcLoc : metas
 
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   inst <- case tag of
     ValRetinst -> translateRetInst finalState (castPtr dataPtr) mds bb
@@ -731,7 +699,7 @@ translateArgument finalState finalF vp = do
 
   when (tag /= ValArgument) (throw $ InvalidTag "Argument" tag)
 
-  tt <- translateType finalState typePtr
+  tt <- translateType typePtr
 
   let dataPtr' = castPtr dataPtr
 

@@ -81,6 +81,10 @@ cModuleRetainedTypeMetadata :: ModulePtr -> IO [MetaPtr]
 cModuleRetainedTypeMetadata m =
   peekArray m {#get CModule->retainedTypeMetadata#} {#get CModule->numRetainedTypes#}
 
+cModuleTypes :: ModulePtr -> IO [TypePtr]
+cModuleTypes m =
+  peekArray m {#get CModule->types#} {#get CModule->numTypes#}
+
 peekArray :: forall a b c e . (Integral c, Storable e) =>
              a -> (a -> IO (Ptr b)) -> (a -> IO c) -> IO [e]
 peekArray obj arrAccessor sizeAccessor = do
