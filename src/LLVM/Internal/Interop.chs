@@ -10,9 +10,10 @@ import Data.Array.Unsafe ( unsafeForeignPtrToStorableArray )
 #else
 import Data.Array.Storable ( unsafeForeignPtrToStorableArray )
 #endif
-import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Int
+import Data.Text ( Text )
+import Data.Text.Encoding ( decodeUtf8 )
 import Foreign.C
 import Foreign.ForeignPtr
 import Foreign.Marshal.Utils
@@ -30,17 +31,22 @@ import Data.LLVM.Types
 data CModule
 {#pointer *CModule as ModulePtr -> CModule #}
 
-cModuleIdentifier :: ModulePtr -> IO ByteString
-cModuleIdentifier m = ({#get CModule->moduleIdentifier#} m) >>= BS.packCString
+makeText :: CString -> IO Text
+makeText p = do
+  s <- BS.packCString p
+  return (decodeUtf8 s)
 
-cModuleDataLayout :: ModulePtr -> IO ByteString
-cModuleDataLayout m = ({#get CModule->moduleDataLayout#} m) >>= BS.packCString
+cModuleIdentifier :: ModulePtr -> IO Text
+cModuleIdentifier m = ({#get CModule->moduleIdentifier#} m) >>= makeText
 
-cModuleTargetTriple :: ModulePtr -> IO ByteString
-cModuleTargetTriple m = ({#get CModule->targetTriple#} m) >>= BS.packCString
+cModuleDataLayout :: ModulePtr -> IO Text
+cModuleDataLayout m = ({#get CModule->moduleDataLayout#} m) >>= makeText
 
-cModuleInlineAsm :: ModulePtr -> IO ByteString
-cModuleInlineAsm m = ({#get CModule->moduleInlineAsm#} m) >>= BS.packCString
+cModuleTargetTriple :: ModulePtr -> IO Text
+cModuleTargetTriple m = ({#get CModule->targetTriple#} m) >>= makeText
+
+cModuleInlineAsm :: ModulePtr -> IO Text
+cModuleInlineAsm m = ({#get CModule->moduleInlineAsm#} m) >>= makeText
 
 cModuleHasError :: ModulePtr -> IO Bool
 cModuleHasError m = toBool <$> ({#get CModule->hasError#} m)
@@ -141,7 +147,8 @@ cValueName v = do
   case namePtr == nullPtr of
     True -> return Nothing
     False -> do
-      name <- BS.packCString namePtr
+      bsname <- BS.packCString namePtr
+      let name = decodeUtf8 bsname
       case tag of
         ValFunction -> return $! (Just . makeGlobalIdentifier) name
         ValGlobalvariable -> return $! (Just . makeGlobalIdentifier) name
@@ -174,17 +181,17 @@ cMetaArrayElts p = map convertNull <$>
         True -> Nothing
         False -> Just ptr
 
-cMetaEnumeratorName :: InternString m => MetaPtr -> m ByteString
+cMetaEnumeratorName :: InternString m => MetaPtr -> m Text
 cMetaEnumeratorName = shareString {#get CMeta->u.metaEnumeratorInfo.enumName#}
 cMetaEnumeratorValue :: MetaPtr -> IO Int64
 cMetaEnumeratorValue p = fromIntegral <$> {#get CMeta->u.metaEnumeratorInfo.enumValue#} p
 cMetaGlobalContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaGlobalContext = optionalField {#get CMeta->u.metaGlobalInfo.context #}
-cMetaGlobalName :: InternString m => MetaPtr -> m ByteString
+cMetaGlobalName :: InternString m => MetaPtr -> m Text
 cMetaGlobalName = shareString {#get CMeta->u.metaGlobalInfo.name#}
-cMetaGlobalDisplayName :: InternString m => MetaPtr -> m ByteString
+cMetaGlobalDisplayName :: InternString m => MetaPtr -> m Text
 cMetaGlobalDisplayName = shareString {#get CMeta->u.metaGlobalInfo.displayName#}
-cMetaGlobalLinkageName :: InternString m => MetaPtr -> m ByteString
+cMetaGlobalLinkageName :: InternString m => MetaPtr -> m Text
 cMetaGlobalLinkageName = shareString {#get CMeta->u.metaGlobalInfo.linkageName#}
 -- cMetaGlobalCompileUnit :: MetaPtr -> IO MetaPtr
 -- cMetaGlobalCompileUnit = {#get CMeta->u.metaGlobalInfo.compileUnit#}
@@ -208,7 +215,7 @@ cMetaSubrangeHi :: MetaPtr -> IO Int64
 cMetaSubrangeHi p = fromIntegral <$> {#get CMeta->u.metaSubrangeInfo.hi#} p
 cMetaTemplateTypeContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTemplateTypeContext = optionalField {#get CMeta->u.metaTemplateTypeInfo.context#}
-cMetaTemplateTypeName :: InternString m => MetaPtr -> m ByteString
+cMetaTemplateTypeName :: InternString m => MetaPtr -> m Text
 cMetaTemplateTypeName = shareString {#get CMeta->u.metaTemplateTypeInfo.name#}
 cMetaTemplateTypeType :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTemplateTypeType = optionalField {#get CMeta->u.metaTemplateTypeInfo.type#}
@@ -218,7 +225,7 @@ cMetaTemplateTypeColumn :: MetaPtr -> IO Int32
 cMetaTemplateTypeColumn p = fromIntegral <$> {#get CMeta->u.metaTemplateTypeInfo.columnNumber#} p
 cMetaTemplateValueContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTemplateValueContext = optionalField {#get CMeta->u.metaTemplateValueInfo.context#}
-cMetaTemplateValueName :: InternString m => MetaPtr -> m ByteString
+cMetaTemplateValueName :: InternString m => MetaPtr -> m Text
 cMetaTemplateValueName = shareString {#get CMeta->u.metaTemplateValueInfo.name#}
 cMetaTemplateValueType :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTemplateValueType = optionalField {#get CMeta->u.metaTemplateValueInfo.type#}
@@ -230,7 +237,7 @@ cMetaTemplateValueColumn :: MetaPtr -> IO Int32
 cMetaTemplateValueColumn p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.columnNumber#} p
 cMetaVariableContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaVariableContext = optionalField {#get CMeta->u.metaVariableInfo.context#}
-cMetaVariableName :: InternString m => MetaPtr -> m ByteString
+cMetaVariableName :: InternString m => MetaPtr -> m Text
 cMetaVariableName = shareString {#get CMeta->u.metaVariableInfo.name#}
 -- cMetaVariableCompileUnit :: MetaPtr -> IO MetaPtr
 -- cMetaVariableCompileUnit = {#get CMeta->u.metaVariableInfo.compileUnit#}
@@ -254,17 +261,17 @@ cMetaVariableIsBlockByRefVar :: MetaPtr -> IO Bool
 cMetaVariableIsBlockByRefVar p = toBool <$> {#get CMeta->u.metaVariableInfo.isBlockByRefVar#} p
 cMetaCompileUnitLanguage :: MetaPtr -> IO DW_LANG
 cMetaCompileUnitLanguage p = dw_lang <$> {#get CMeta->u.metaCompileUnitInfo.language#} p
-cMetaCompileUnitFilename :: InternString m => MetaPtr -> m ByteString
+cMetaCompileUnitFilename :: InternString m => MetaPtr -> m Text
 cMetaCompileUnitFilename = shareString {#get CMeta->u.metaCompileUnitInfo.filename#}
-cMetaCompileUnitDirectory :: InternString m => MetaPtr -> m ByteString
+cMetaCompileUnitDirectory :: InternString m => MetaPtr -> m Text
 cMetaCompileUnitDirectory = shareString {#get CMeta->u.metaCompileUnitInfo.directory#}
-cMetaCompileUnitProducer :: InternString m => MetaPtr -> m ByteString
+cMetaCompileUnitProducer :: InternString m => MetaPtr -> m Text
 cMetaCompileUnitProducer = shareString {#get CMeta->u.metaCompileUnitInfo.producer#}
 cMetaCompileUnitIsMain :: MetaPtr -> IO Bool
 cMetaCompileUnitIsMain p = toBool <$> {#get CMeta->u.metaCompileUnitInfo.isMain#} p
 cMetaCompileUnitIsOptimized :: MetaPtr -> IO Bool
 cMetaCompileUnitIsOptimized p = toBool <$> {#get CMeta->u.metaCompileUnitInfo.isOptimized#} p
-cMetaCompileUnitFlags :: InternString m => MetaPtr -> m ByteString
+cMetaCompileUnitFlags :: InternString m => MetaPtr -> m Text
 cMetaCompileUnitFlags = shareString {#get CMeta->u.metaCompileUnitInfo.flags#}
 cMetaCompileUnitRuntimeVersion :: MetaPtr -> IO Int32
 cMetaCompileUnitRuntimeVersion p = fromIntegral <$> {#get CMeta->u.metaCompileUnitInfo.runtimeVersion#} p
@@ -276,9 +283,9 @@ cMetaCompileUnitSubprograms :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaCompileUnitSubprograms = optionalField {#get CMeta->u.metaCompileUnitInfo.subprograms#}
 cMetaCompileUnitGlobalVariables :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaCompileUnitGlobalVariables = optionalField {#get CMeta->u.metaCompileUnitInfo.globalVariables#}
-cMetaFileFilename :: InternString m => MetaPtr -> m ByteString
+cMetaFileFilename :: InternString m => MetaPtr -> m Text
 cMetaFileFilename = shareString {#get CMeta->u.metaFileInfo.filename#}
-cMetaFileDirectory :: InternString m => MetaPtr -> m ByteString
+cMetaFileDirectory :: InternString m => MetaPtr -> m Text
 cMetaFileDirectory = shareString {#get CMeta->u.metaFileInfo.directory#}
 -- cMetaFileCompileUnit :: MetaPtr -> IO MetaPtr
 -- cMetaFileCompileUnit = {#get CMeta->u.metaFileInfo.compileUnit#}
@@ -290,7 +297,7 @@ cMetaLexicalBlockColumn :: MetaPtr -> IO Int32
 cMetaLexicalBlockColumn p = fromIntegral <$> {#get CMeta->u.metaLexicalBlockInfo.columnNumber#} p
 cMetaNamespaceContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaNamespaceContext = optionalField {#get CMeta->u.metaNamespaceInfo.context#}
-cMetaNamespaceName :: InternString m => MetaPtr -> m ByteString
+cMetaNamespaceName :: InternString m => MetaPtr -> m Text
 cMetaNamespaceName = shareString {#get CMeta->u.metaNamespaceInfo.name#}
 -- cMetaNamespaceCompileUnit :: MetaPtr -> IO MetaPtr
 -- cMetaNamespaceCompileUnit = {#get CMeta->u.metaNamespaceInfo.compileUnit#}
@@ -298,11 +305,11 @@ cMetaNamespaceLine :: MetaPtr -> IO Int32
 cMetaNamespaceLine p = fromIntegral <$> {#get CMeta->u.metaNamespaceInfo.lineNumber#} p
 cMetaSubprogramContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaSubprogramContext = optionalField {#get CMeta->u.metaSubprogramInfo.context#}
-cMetaSubprogramName :: InternString m => MetaPtr -> m ByteString
+cMetaSubprogramName :: InternString m => MetaPtr -> m Text
 cMetaSubprogramName = shareString {#get CMeta->u.metaSubprogramInfo.name#}
-cMetaSubprogramDisplayName :: InternString m => MetaPtr -> m ByteString
+cMetaSubprogramDisplayName :: InternString m => MetaPtr -> m Text
 cMetaSubprogramDisplayName = shareString {#get CMeta->u.metaSubprogramInfo.displayName#}
-cMetaSubprogramLinkageName :: InternString m => MetaPtr -> m ByteString
+cMetaSubprogramLinkageName :: InternString m => MetaPtr -> m Text
 cMetaSubprogramLinkageName = shareString {#get CMeta->u.metaSubprogramInfo.linkageName#}
 -- cMetaSubprogramCompileUnit :: MetaPtr -> IO MetaPtr
 -- cMetaSubprogramCompileUnit = {#get CMeta->u.metaSubprogramInfo.compileUnit#}
@@ -334,7 +341,7 @@ cMetaSubprogramIsOptimized :: MetaPtr -> IO Bool
 cMetaSubprogramIsOptimized p = toBool <$> {#get CMeta->u.metaSubprogramInfo.isOptimized#} p
 cMetaTypeContext :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTypeContext = optionalField {#get CMeta->u.metaTypeInfo.context#}
-cMetaTypeName :: InternString m => MetaPtr -> m ByteString
+cMetaTypeName :: InternString m => MetaPtr -> m Text
 cMetaTypeName = shareString {#get CMeta->u.metaTypeInfo.name#}
 -- cMetaTypeCompileUnit :: MetaPtr -> IO (Maybe MetaPtr)
 -- cMetaTypeCompileUnit = optionalField {#get CMeta->u.metaTypeInfo.compileUnit#}
@@ -374,7 +381,7 @@ cMetaTypeContainingType :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTypeContainingType = optionalField {#get CMeta->u.metaTypeInfo.containingType#}
 cMetaTypeTemplateParams :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTypeTemplateParams = optionalField {#get CMeta->u.metaTypeInfo.templateParams#}
-cMetaUnknownRepr :: InternString m => MetaPtr -> m ByteString
+cMetaUnknownRepr :: InternString m => MetaPtr -> m Text
 cMetaUnknownRepr = shareString {#get CMeta->u.metaUnknownInfo.repr#}
 
 optionalField :: (a -> IO (Ptr b)) -> a -> IO (Maybe (Ptr b))
@@ -385,18 +392,18 @@ optionalField accessor p = do
     False -> return (Just v)
 
 class MonadIO m => InternString m where
-  internString :: ByteString -> m ByteString
+  internString :: Text -> m Text
 
--- | This helper converts C char* strings into ByteStrings, sharing
+-- | This helper converts C char* strings into Texts, sharing
 -- identical bytestrings on the Haskell side.  This is a simple
 -- space-saving optimization (assuming the entire cache is garbage
 -- collected)
-shareString :: InternString m => (a -> IO CString) -> a -> m ByteString
+shareString :: InternString m => (a -> IO CString) -> a -> m Text
 shareString accessor ptr = do
   sp <- liftIO $ accessor ptr
   when (sp == nullPtr) (error "Null ptr in string")
   str <- liftIO $ BS.packCString sp
-  internString str
+  internString (decodeUtf8 str)
 
 data CGlobalInfo
 {#pointer *CGlobalInfo as GlobalInfoPtr -> CGlobalInfo #}
@@ -408,14 +415,14 @@ cGlobalVisibility :: GlobalInfoPtr -> IO VisibilityStyle
 cGlobalVisibility g = toEnum . fromIntegral <$> ({#get CGlobalInfo->visibility#} g)
 cGlobalLinkage :: GlobalInfoPtr -> IO LinkageType
 cGlobalLinkage g = toEnum . fromIntegral <$> ({#get CGlobalInfo->linkage#} g)
-cGlobalSection :: GlobalInfoPtr -> IO (Maybe ByteString)
+cGlobalSection :: GlobalInfoPtr -> IO (Maybe Text)
 cGlobalSection g = do
   s <- {#get CGlobalInfo->section#} g
   case s == nullPtr of
     True -> return Nothing
     False -> do
       bs <- BS.packCString s
-      return $! Just bs
+      return $! Just (decodeUtf8 bs)
 cGlobalInitializer :: GlobalInfoPtr -> IO ValuePtr
 cGlobalInitializer = {#get CGlobalInfo->initializer#}
 cGlobalIsThreadLocal :: GlobalInfoPtr -> IO Bool
@@ -435,26 +442,26 @@ cFunctionVisibility :: FunctionInfoPtr -> IO VisibilityStyle
 cFunctionVisibility f = toEnum . fromIntegral <$> {#get CFunctionInfo->visibility#} f
 cFunctionLinkage :: FunctionInfoPtr -> IO LinkageType
 cFunctionLinkage f = toEnum . fromIntegral <$> {#get CFunctionInfo->linkage#} f
-cFunctionSection :: FunctionInfoPtr -> IO (Maybe ByteString)
+cFunctionSection :: FunctionInfoPtr -> IO (Maybe Text)
 cFunctionSection f = do
   s <- {#get CFunctionInfo->section#} f
   case s == nullPtr of
     True -> return Nothing
     False -> do
       bs <- BS.packCString s
-      return $! Just bs
+      return $! Just (decodeUtf8 bs)
 cFunctionIsVarArg :: FunctionInfoPtr -> IO Bool
 cFunctionIsVarArg f = toBool <$> {#get CFunctionInfo->isVarArg#} f
 cFunctionCallingConvention :: FunctionInfoPtr -> IO CallingConvention
 cFunctionCallingConvention f = toEnum . fromIntegral <$> {#get CFunctionInfo->callingConvention#} f
-cFunctionGCName :: FunctionInfoPtr -> IO (Maybe ByteString)
+cFunctionGCName :: FunctionInfoPtr -> IO (Maybe Text)
 cFunctionGCName f = do
   s <- {#get CFunctionInfo->gcName#} f
   case s == nullPtr of
     True -> return Nothing
     False -> do
       bs <- BS.packCString s
-      return $! Just bs
+      return $! Just (decodeUtf8 bs)
 cFunctionArguments :: FunctionInfoPtr -> IO [ValuePtr]
 cFunctionArguments f =
   peekArray f {#get CFunctionInfo->arguments#} {#get CFunctionInfo->argListLen#}
@@ -485,12 +492,12 @@ cBasicBlockInstructions b =
 data CInlineAsmInfo
 {#pointer *CInlineAsmInfo as InlineAsmInfoPtr -> CInlineAsmInfo #}
 
-cInlineAsmString :: InlineAsmInfoPtr -> IO ByteString
+cInlineAsmString :: InlineAsmInfoPtr -> IO Text
 cInlineAsmString a =
-  ({#get CInlineAsmInfo->asmString#} a) >>= BS.packCString
-cInlineAsmConstraints :: InlineAsmInfoPtr -> IO ByteString
+  ({#get CInlineAsmInfo->asmString#} a) >>= makeText
+cInlineAsmConstraints :: InlineAsmInfoPtr -> IO Text
 cInlineAsmConstraints a =
-  ({#get CInlineAsmInfo->constraintString#} a) >>= BS.packCString
+  ({#get CInlineAsmInfo->constraintString#} a) >>= makeText
 
 data CBlockAddrInfo
 {#pointer *CBlockAddrInfo as BlockAddrInfoPtr -> CBlockAddrInfo #}

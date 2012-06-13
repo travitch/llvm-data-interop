@@ -40,6 +40,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
 import Data.Monoid
+import Data.Text ( Text )
 import Data.Typeable
 import qualified Data.Vector as V
 import Data.Word ( Word64 )
@@ -99,7 +100,7 @@ data TranslationException = TooManyReturnValues
                           | InvalidBranchTarget Value
                           | InvalidSwitchTarget Value
                           | InvalidResumeInst !Int
-                          | InvalidDataLayout ByteString String
+                          | InvalidDataLayout Text String
                           deriving (Show, Typeable)
 instance Exception TranslationException
 
@@ -113,7 +114,7 @@ data KnotState = KnotState { valueMap :: BasicHashTable Word64 Value
                            , visitedTypes :: Set IntPtr
                            , visitedMetadata :: Set IntPtr
                            , localId :: Int
-                           , stringCache :: Map ByteString ByteString
+                           , stringCache :: Map Text Text
                            }
 
 instance InternString (StateT KnotState IO) where
