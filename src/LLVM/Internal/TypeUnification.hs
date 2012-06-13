@@ -58,7 +58,6 @@ import Data.Word ( Word64 )
 import Debug.Trace.LocationTH
 import Foreign.Ptr
 import System.IO.Unsafe ( unsafePerformIO )
-import Text.Regex.TDFA
 
 import Data.LLVM.Types
 import LLVM.Internal.Interop
@@ -388,14 +387,3 @@ isNotOpaque :: TypePtr -> IO Bool
 isNotOpaque tp = do
   ptrs <- cTypeList tp
   return (not (null ptrs))
-
-structBaseName :: String -> String
-structBaseName s =
-  let pfx:_ = captures
-  in pfx
-  where
-    pattern :: String
-    pattern = "([[:alpha:]]+\\.[[:alnum:]_]+)(\\.[[:digit:]]+)?"
-    m :: (String, String, String, [String])
-    m = s =~ pattern
-    (_, _, _, captures) = m
