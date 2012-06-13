@@ -33,11 +33,11 @@ import qualified Data.ByteString.Char8 as BS
 import Data.ByteString.Unsafe ( unsafeUseAsCStringLen )
 import Data.IORef
 import Data.HashTable.IO ( BasicHashTable )
-import Data.Map ( Map )
 import Data.Set ( Set )
 import qualified Data.HashTable.IO as HT
-import qualified Data.Map as M
 import qualified Data.Set as S
+import Data.HashMap.Strict ( HashMap )
+import qualified Data.HashMap.Strict as HM
 import Data.Maybe ( catMaybes )
 import Data.Monoid
 import Data.Text ( Text )
@@ -114,17 +114,17 @@ data KnotState = KnotState { valueMap :: BasicHashTable Word64 Value
                            , visitedTypes :: Set IntPtr
                            , visitedMetadata :: Set IntPtr
                            , localId :: Int
-                           , stringCache :: Map Text Text
+                           , stringCache :: HashMap Text Text
                            }
 
 instance InternString (StateT KnotState IO) where
   internString str = do
     s <- get
     let cache = stringCache s
-    case M.lookup str cache of
+    case HM.lookup str cache of
       Just cval -> return cval
       Nothing -> do
-        put s { stringCache = M.insert str str cache }
+        put s { stringCache = HM.insert str str cache }
         return str
 
 
