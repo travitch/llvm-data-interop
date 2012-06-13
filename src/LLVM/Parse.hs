@@ -548,22 +548,14 @@ computeRealName name = do
       put s { localId = idCtr + 1 }
       return $ Just $ makeAnonymousLocal idCtr
 
--- FIXME: Ideally we would be able to not give names to void call
--- instructions (to match the numbering used by llvm).  Unfortunately,
--- checking whether or not t is void here collapses the knot we are
--- tying too soon and crashes the program.
---
--- FIXME: We can now fix this since the type knot is already tied by
--- the time we get here.
+-- | Compute the name of a call or invoke instruction.  If the call is
+-- void, it does not get a name; otherwise, it does need a
+-- sequentially-generated name.
 computeNameIfNotVoid :: Maybe Identifier -> Type -> KnotMonad (Maybe Identifier)
-computeNameIfNotVoid mid _ = computeRealName mid
-{-
 computeNameIfNotVoid mid t =
   case t of
     TypeVoid -> return Nothing
     _ -> computeRealName mid
--}
-
 
 translateInstruction :: KnotState -> Maybe BasicBlock -> ValuePtr -> KnotMonad Instruction
 translateInstruction finalState bb vp = do
