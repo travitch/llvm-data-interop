@@ -140,20 +140,22 @@ cValueTag :: ValuePtr -> IO ValueTag
 cValueTag v = toEnum . fromIntegral <$> ({#get CValue->valueTag#} v)
 cValueType :: ValuePtr -> IO TypePtr
 cValueType = {#get CValue->valueType#}
-cValueName :: ValuePtr -> IO (Maybe Identifier)
+cValueName :: (InternString m) => ValuePtr -> m (Maybe Identifier)
 cValueName v = do
-  tag <- cValueTag v
-  namePtr <- ({#get CValue->name#}) v
+  tag <- liftIO $ cValueTag v
+  namePtr <- liftIO $ ({#get CValue->name#}) v
   case namePtr == nullPtr of
     True -> return Nothing
     False -> do
-      bsname <- BS.packCString namePtr
-      let name = decodeUtf8 bsname
-      case tag of
-        ValFunction -> return $! (Just . makeGlobalIdentifier) name
-        ValGlobalvariable -> return $! (Just . makeGlobalIdentifier) name
-        ValAlias -> return $! (Just . makeGlobalIdentifier) name
-        _ -> return $! (Just . makeLocalIdentifier) name
+      rawName <- liftIO $ makeText namePtr
+      name <- internString rawName
+      rawIdent <- case tag of
+        ValFunction -> return $! makeGlobalIdentifier name
+        ValGlobalvariable -> return $! makeGlobalIdentifier name
+        ValAlias -> return $!  makeGlobalIdentifier name
+        _ -> return $! makeLocalIdentifier name
+      ident <- internIdentifier rawIdent
+      return $! (Just ident)
 cValueMetadata :: ValuePtr -> IO [MetaPtr]
 cValueMetadata v = peekArray v {#get CValue->md#} {#get CValue->numMetadata#}
 cValueSrcLoc :: ValuePtr -> IO MetaPtr
@@ -393,6 +395,7 @@ optionalField accessor p = do
 
 class MonadIO m => InternString m where
   internString :: Text -> m Text
+  internIdentifier :: Identifier -> m Identifier
 
 -- | This helper converts C char* strings into Texts, sharing
 -- identical bytestrings on the Haskell side.  This is a simple

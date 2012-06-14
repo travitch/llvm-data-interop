@@ -36,8 +36,6 @@ import Data.HashTable.IO ( BasicHashTable )
 import Data.Set ( Set )
 import qualified Data.HashTable.IO as HT
 import qualified Data.Set as S
-import Data.HashMap.Strict ( HashMap )
-import qualified Data.HashMap.Strict as HM
 import Data.Maybe ( catMaybes )
 import Data.Monoid
 import Data.Text ( Text )
@@ -111,21 +109,31 @@ data KnotState = KnotState { valueMap :: BasicHashTable Word64 Value
                            , idSrc :: IORef Int
                            , metaIdSrc :: IORef Int
                            , result :: Maybe Module
-                           , visitedTypes :: Set IntPtr
                            , visitedMetadata :: Set IntPtr
                            , localId :: Int
-                           , stringCache :: HashMap Text Text
+                           , stringCache :: BasicHashTable Text Text
+                           , identCache :: BasicHashTable Identifier Identifier
                            }
 
 instance InternString (StateT KnotState IO) where
   internString str = do
     s <- get
     let cache = stringCache s
-    case HM.lookup str cache of
+    v <- liftIO $ HT.lookup cache str
+    case v of
       Just cval -> return cval
       Nothing -> do
-        put s { stringCache = HM.insert str str cache }
+        liftIO $ HT.insert cache str str
         return str
+  internIdentifier ident = do
+    s <- get
+    let cache = identCache s
+    v <- liftIO $ HT.lookup cache ident
+    case v of
+      Just val -> return val
+      Nothing -> do
+        liftIO $ HT.insert cache ident ident
+        return ident
 
 
 emptyState :: IORef Int
@@ -133,18 +141,20 @@ emptyState :: IORef Int
               -> BasicHashTable Word64 Value
               -> BasicHashTable Word64 Metadata
               -> BasicHashTable Word64 Type
+              -> BasicHashTable Text Text
+              -> BasicHashTable Identifier Identifier
               -> KnotState
-emptyState r1 r2 vm mm tm =
+emptyState r1 r2 vm mm tm sc ic =
   KnotState { valueMap = vm
             , typeMap = tm
             , metaMap = mm
             , idSrc = r1
             , metaIdSrc = r2
             , result = Nothing
-            , visitedTypes = mempty
             , visitedMetadata = mempty
             , localId = 0
-            , stringCache = mempty
+            , stringCache = sc
+            , identCache = ic
             }
 
 genId :: (KnotState -> IORef Int) -> KnotMonad Int
@@ -206,8 +216,12 @@ translateCModule :: ModulePtr -> IO (Either String Module)
 translateCModule m = do
   idref <- newIORef 1
   mref <- newIORef 1
-  valMap <- HT.new
-  mmMap <- HT.new
+
+  -- Default these tables to be slightly large to reduce resizing
+  valMap <- HT.newSized 2000
+  mmMap <- HT.newSized 2000
+  sCache <- HT.newSized 2000
+  iCache <- HT.newSized 2000
 
   -- Do a preliminary pass over all of the types in the Module.  This
   -- pass will unify structurally identical types (and basically
@@ -223,7 +237,8 @@ translateCModule m = do
   modTypes <- cModuleTypes m
   tyMap <- unifyTypes modTypes
 
-  res <- evalStateT (mfix (tieKnot m)) (emptyState idref mref valMap mmMap tyMap)
+  let s0 = emptyState idref mref valMap mmMap tyMap sCache iCache
+  res <- evalStateT (mfix (tieKnot m)) s0
   disposeCModule m
   case result res of
     Just r -> do
@@ -330,7 +345,7 @@ recordValue vp v = do
 
 translateAlias :: KnotState -> ValuePtr -> KnotMonad GlobalAlias
 translateAlias finalState vp = do
-  Just name <- liftIO $ cValueName vp
+  Just name <- cValueName vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
   let dataPtr' = castPtr dataPtr
@@ -359,7 +374,7 @@ translateAlias finalState vp = do
 
 translateExternalVariable :: KnotState -> ValuePtr -> KnotMonad ExternalValue
 translateExternalVariable finalState vp = do
-  Just name <- liftIO $ cValueName vp
+  Just name <- cValueName vp
   typePtr <- liftIO $ cValueType vp
   metaPtr <- liftIO $ cValueMetadata vp
   tt <- translateType typePtr
@@ -378,7 +393,7 @@ translateExternalVariable finalState vp = do
 
 translateGlobalVariable :: KnotState -> ValuePtr -> KnotMonad GlobalVariable
 translateGlobalVariable finalState vp = do
-  Just name <- liftIO $ cValueName vp
+  Just name <- cValueName vp
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
@@ -419,7 +434,7 @@ translateGlobalVariable finalState vp = do
 
 translateExternalFunction :: KnotState -> ValuePtr -> KnotMonad ExternalFunction
 translateExternalFunction finalState vp = do
-  Just name <- liftIO $ cValueName vp
+  Just name <- cValueName vp
   typePtr <- liftIO $ cValueType vp
   metaPtr <- liftIO $ cValueMetadata vp
   tt <- translateType typePtr
@@ -445,7 +460,7 @@ resetLocalIdCounter = do
 
 translateFunction :: KnotState -> ValuePtr -> KnotMonad Function
 translateFunction finalState vp = do
-  Just name <- liftIO $ cValueName vp
+  Just name <- cValueName vp
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
@@ -547,7 +562,9 @@ computeRealName name = do
     Just n -> return (Just n)
     Nothing -> do
       put s { localId = idCtr + 1 }
-      return $ Just $ makeAnonymousLocal idCtr
+      let rawAnonId = makeAnonymousLocal idCtr
+      anonId <- internIdentifier rawAnonId
+      return $! Just anonId
 
 -- | Compute the name of a call or invoke instruction.  If the call is
 -- void, it does not get a name; otherwise, it does need a
@@ -561,7 +578,7 @@ computeNameIfNotVoid mid t =
 translateInstruction :: KnotState -> Maybe BasicBlock -> ValuePtr -> KnotMonad Instruction
 translateInstruction finalState bb vp = do
   tag <- liftIO $ cValueTag vp
-  name <- liftIO $ cValueName vp
+  name <- cValueName vp
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
@@ -682,7 +699,7 @@ translateConstOrRef finalState vp = do
 translateArgument :: KnotState -> Function -> ValuePtr -> KnotMonad Argument
 translateArgument finalState finalF vp = do
   tag <- liftIO $ cValueTag vp
-  Just name <- liftIO $ cValueName vp
+  Just name <- cValueName vp
   typePtr <- liftIO $ cValueType vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
@@ -722,7 +739,7 @@ translateArgument finalState finalF vp = do
 translateBasicBlock :: KnotState -> Function -> ValuePtr -> KnotMonad BasicBlock
 translateBasicBlock finalState f vp = do
   tag <- liftIO $ cValueTag vp
-  name <- liftIO $ cValueName vp
+  name <- cValueName vp
   dataPtr <- liftIO $ cValueData vp
   metaPtr <- liftIO $ cValueMetadata vp
 
