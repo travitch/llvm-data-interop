@@ -71,7 +71,10 @@ data T a = T String [a]
 instance Unifiable T where
   zipMatch (T a xs) (T b ys) =
     case a == b of
-      True -> fmap (T a) (pair xs ys)
+      True ->
+        case pair xs ys of
+          Nothing -> Nothing
+          Just p -> Just (T a (map Right p))
       False -> Nothing
 
 type TTerm = UTerm T IntVar

@@ -25,7 +25,7 @@ library
   default-language: Haskell2010
   build-depends: base > 3 && < 5, array, bytestring, data-default >= 0.3, containers,
                  dwarf, deepseq, mtl > 2, hashable >= 1.1.2.0, llvm-base-types,
-                 loch-th >= 0.2, hashtables, vector, unification-fd >= 0.7,
+                 loch-th >= 0.2, hashtables, vector, unification-fd >= 0.8,
                  unordered-containers >= 0.2.1.0, transformers, text
   other-modules: LLVM.Internal.Interop
                  LLVM.Internal.TypeUnification
