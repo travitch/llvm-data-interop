@@ -368,7 +368,7 @@ translateAlias finalState vp = do
                        , globalAliasUniqueId = uid
                        }
 
-  recordValue vp (Value ga)
+  recordValue vp (toValue ga)
 
   return ga
 
@@ -387,7 +387,7 @@ translateExternalVariable finalState vp = do
                          , externalValueMetadata = mds
                          , externalValueUniqueId = uid
                          }
-  recordValue vp (Value ev)
+  recordValue vp (toValue ev)
   return ev
 
 
@@ -429,7 +429,7 @@ translateGlobalVariable finalState vp = do
                           , globalVariableName = name
                           , globalVariableUniqueId = uid
                           }
-  recordValue vp (Value gv)
+  recordValue vp (toValue gv)
   return gv
 
 translateExternalFunction :: KnotState -> ValuePtr -> KnotMonad ExternalFunction
@@ -449,7 +449,7 @@ translateExternalFunction finalState vp = do
                             , externalFunctionUniqueId = uid
                             , externalFunctionAttrs = [] -- FIXME: Need to figure out how to find attrs
                             }
-  recordValue vp (Value ef)
+  recordValue vp (toValue ef)
   return ef
 
 
@@ -502,7 +502,7 @@ translateFunction finalState vp = do
                                   }
                 return f')
 
-  recordValue vp (Value f)
+  recordValue vp (toValue f)
   return f
 
 translateConstant :: KnotState -> ValuePtr -> KnotMonad Constant
@@ -544,7 +544,7 @@ translateConstant finalState vp = do
                            }
     _ -> throw $ NonConstantTag tag
 
-  recordValue vp (Value constant)
+  recordValue vp (toValue constant)
 
   return constant
 
@@ -657,7 +657,7 @@ translateInstruction finalState bb vp = do
     ValLandingpadinst -> translateLandingPadInst finalState (castPtr dataPtr) name tt mds bb
     _ -> throw $ NonInstructionTag tag
 
-  recordValue vp (Value inst)
+  recordValue vp (toValue inst)
 
   return inst
 
@@ -688,7 +688,7 @@ translateConstOrRef finalState vp = do
       case isConstant tag of
         -- translateConstant handles making the hash table entry for
         -- this pointer
-        True -> Value <$> translateConstant finalState vp
+        True -> toValue <$> translateConstant finalState vp
         False -> do
           -- This cheats in the knot tying.  The map is read again
           -- *after* it has been filled in (since these values are not
@@ -732,7 +732,7 @@ translateArgument finalState finalF vp = do
                    , argumentParamAttrs = catMaybes atts
                    , argumentFunction = finalF
                    }
-  recordValue vp (Value a)
+  recordValue vp (toValue a)
   return a
 
 
@@ -767,7 +767,7 @@ translateBasicBlock finalState f vp = do
                                         }
                  return block')
 
-  recordValue vp (Value bb)
+  recordValue vp (toValue bb)
   return bb
 
 translateInlineAsm :: KnotState -> InlineAsmInfoPtr -> Type -> KnotMonad Constant
