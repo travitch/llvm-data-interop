@@ -332,7 +332,10 @@ toTerm' varMap tp = do
           return $ typeTerm "*" [ity]
     TYPE_STRUCT ->
       case M.lookup tp varMap of
-        Nothing -> $failure ("Expected a variable for " ++ show tp)
+        Nothing -> do
+          mptrs <- lift $ cTypeList tp
+          innerTerms <- mapM (toTerm' varMap) mptrs
+          return $ typeTerm "%anon.struct" innerTerms
         Just v -> return v
 
 -- | Assign fresh unification variables to every struct type in the
