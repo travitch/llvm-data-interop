@@ -545,6 +545,7 @@ static void disposeData(ValueTag t, void* data) {
   case VAL_CONSTANTINT:
   {
     CConstInt *d = (CConstInt*)data;
+    free(d->hugeVal);
     free(d);
     return;
   }
@@ -2004,8 +2005,12 @@ static CValue* translateConstantInt(CModule *m, const ConstantInt* i) {
   CConstInt *d = (CConstInt*)calloc(1, sizeof(CConstInt));
   v->data = (void*)d;
 
-  d->val = i->getSExtValue();
-
+  const APInt& apint = i->getValue();
+  d->hugeVal = NULL;
+  if(apint.getMinSignedBits() <= 64)
+    d->val = i->getSExtValue();
+  else
+    d->hugeVal = strdup(apint.toString(10, true).c_str());
   return v;
 }
 

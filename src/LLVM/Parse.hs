@@ -820,7 +820,10 @@ translateConstantFP _ dataPtr tt = do
 translateConstantInt :: KnotState -> IntInfoPtr -> Type -> KnotMonad Constant
 translateConstantInt _ dataPtr tt = do
   uid <- nextId
-  intval <- liftIO $ cIntVal dataPtr
+  hugeVal <- liftIO $ cIntHugeVal dataPtr
+  intval <- case hugeVal of
+    Nothing -> liftIO $ cIntVal dataPtr
+    Just hv -> return hv
   return $ ConstantInt { constantType = tt
                        , constantUniqueId = uid
                        , constantIntValue = intval

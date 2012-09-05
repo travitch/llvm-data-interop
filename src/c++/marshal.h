@@ -356,6 +356,7 @@ typedef struct {
 // This is lossy but good enough for all practical purposes.
 typedef struct {
   long long int val;
+  char* hugeVal;
 } CConstInt;
 
 typedef struct {

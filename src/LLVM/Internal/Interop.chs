@@ -526,6 +526,12 @@ data CConstInt
 {#pointer *CConstInt as IntInfoPtr -> CConstInt #}
 cIntVal :: IntInfoPtr -> IO Integer
 cIntVal i = fromIntegral <$> ({#get CConstInt->val#} i)
+cIntHugeVal :: IntInfoPtr -> IO (Maybe Integer)
+cIntHugeVal i = do
+  s <- {#get CConstInt->hugeVal#} i
+  case s == nullPtr of
+    True -> return Nothing
+    False -> (Just . read) <$> peekCString s
 
 data CInstructionInfo
 {#pointer *CInstructionInfo as InstInfoPtr -> CInstructionInfo #}
