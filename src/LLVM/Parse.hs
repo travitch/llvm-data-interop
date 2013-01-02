@@ -22,11 +22,9 @@ module LLVM.Parse (
   parseLLVMFile
   ) where
 
-import Prelude hiding ( catch )
-
 import Control.Applicative
 import Control.DeepSeq
-import Control.Exception
+import Control.Exception as E
 import Control.Monad.State.Strict
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
@@ -188,7 +186,7 @@ parseLLVMFile opts filename = do
       Just errMsg <- cModuleErrorMessage m
       disposeCModule m
       return $! Left errMsg
-    False -> catch (translateCModule m) exHandler
+    False -> E.catch (translateCModule m) exHandler
 
 -- | Parse LLVM IR from a Handle into a 'Module'
 hParseLLVM :: ParserOptions -> Handle -> IO (Either String Module)
@@ -210,7 +208,7 @@ parseLLVM opts content = do
         Just errMsg <- cModuleErrorMessage m
         disposeCModule m
         return $! Left errMsg
-      False -> catch (translateCModule m) exHandler
+      False -> E.catch (translateCModule m) exHandler
 
 translateCModule :: ModulePtr -> IO (Either String Module)
 translateCModule m = do
