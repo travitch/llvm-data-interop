@@ -23,12 +23,20 @@
 #include <llvm/DerivedTypes.h>
 #include <llvm/ADT/OwningPtr.h>
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/Analysis/DebugInfo.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Support/IRReader.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/system_error.h>
+
+#include <llvm/Config/llvm-config.h>
+#if LLVM_VERSION_MAJOR >= 3
+  #if LLVM_VERSION_MINOR >= 2
+    #include <llvm/DebugInfo.h>
+  #else
+    #include <llvm/Analysis/DebugInfo.h>
+  #endif
+#endif
 
 using namespace llvm;
 using std::ostringstream;
@@ -191,7 +199,9 @@ static LinkageType decodeLinkage(const GlobalValue *gv) {
   case GlobalValue::PrivateLinkage: return LTPrivate;
   case GlobalValue::LinkerPrivateLinkage: return LTLinkerPrivate;
   case GlobalValue::LinkerPrivateWeakLinkage: return LTLinkerPrivateWeak;
+#if LLVM_VERSION_MINOR < 2
   case GlobalValue::LinkerPrivateWeakDefAutoLinkage: return LTLinkerPrivateWeakDefAuto;
+#endif
   case GlobalValue::DLLImportLinkage: return LTDLLImport;
   case GlobalValue::DLLExportLinkage: return LTDLLExport;
   case GlobalValue::ExternalWeakLinkage: return LTExternalWeak;
