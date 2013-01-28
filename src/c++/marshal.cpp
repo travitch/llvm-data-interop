@@ -2277,7 +2277,9 @@ static void decodeAndAttachSubprogram(CModule *m, DISubprogram sp) {
   else if(metaCount == currentCapacity - 1) {
     int newCapacity = 2 * currentCapacity;
     CMeta **newMeta = (CMeta**)calloc(newCapacity, sizeof(CMeta*));
-    memcpy(newMeta, md->u.metaSubprogramInfo.function->md, currentCapacity);
+    memcpy(newMeta, md->u.metaSubprogramInfo.function->md, currentCapacity * sizeof(CMeta*));
+    free(md->u.metaSubprogramInfo.function->md);
+    md->u.metaSubprogramInfo.function->md = newMeta;
     md->u.metaSubprogramInfo.function->metaCapacity = newCapacity;
   }
 
