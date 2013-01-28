@@ -10,5 +10,6 @@ also uses libstdc++.  This can make linking tricky sometimes.  For
 example, mixing template-haskell with C++-linked code does not seem to
 work.
 
-Note that this library only works with LLVM 3.0.  An attempt will be
-made to support versions later than 3.0.
+Note that this library only works with LLVM 3.0-3.2, and will try to
+retain as much compatibility with future and past versions as is
+reasonable.
