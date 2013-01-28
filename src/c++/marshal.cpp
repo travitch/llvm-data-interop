@@ -2094,6 +2094,7 @@ static CValue* translateConstantAggregate(CModule *m, ValueTag t, const Constant
   return v;
 }
 
+#if defined(LLVM_VERSION_MAJOR)
 static CValue* translateConstantData(CModule *m, const ConstantDataSequential *cd) {
   PrivateData *pd = (PrivateData*)m->privateData;
   CValue *v = (CValue*)calloc(1, sizeof(CValue));
@@ -2116,6 +2117,7 @@ static CValue* translateConstantData(CModule *m, const ConstantDataSequential *c
 
   return v;
 }
+#endif // LLVM_VERSION_MAJOR
 
 static CValue* translateConstantExpr(CModule *m, const ConstantExpr *ce) {
   PrivateData *pd = (PrivateData*)m->privateData;
@@ -2181,11 +2183,13 @@ static CValue* translateConstant(CModule *m, const Constant *c) {
   if(const ConstantArray *ca = dyn_cast<const ConstantArray>(c)) {
     return translateConstantAggregate(m, VAL_CONSTANTARRAY, ca);
   }
-
+#if defined(LLVM_VERSION_MAJOR)
+  // The ConstantDataSequential type was introduced with LLVM 3.1 (3.0
+  // did not define LLVM_VERSION_*)
   if(const ConstantDataSequential *cd = dyn_cast<const ConstantDataSequential>(c)) {
     return translateConstantData(m, cd);
   }
-
+#endif
   if(const ConstantVector *cv = dyn_cast<const ConstantVector>(c)) {
     return translateConstantAggregate(m, VAL_CONSTANTVECTOR, cv);
   }
