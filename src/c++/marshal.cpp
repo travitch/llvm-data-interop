@@ -30,8 +30,12 @@
 #include <llvm/Support/system_error.h>
 
 #include <llvm/Config/llvm-config.h>
-#if LLVM_VERSION_MAJOR >= 3
+// LLVM 3.0 does not set the version macros, so test that first.
+#if !defined(LLVM_VERSION_MAJOR)
+  #include <llvm/Analysis/DebugInfo.h>
+#elif LLVM_VERSION_MAJOR >= 3
   #if LLVM_VERSION_MINOR >= 2
+    // LLVM 3.2 moved the debug info header
     #include <llvm/DebugInfo.h>
   #else
     #include <llvm/Analysis/DebugInfo.h>
