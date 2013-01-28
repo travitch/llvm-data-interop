@@ -2343,7 +2343,9 @@ static void attachGlobalMetadata(CModule *m, Module *M) {
     else if(metaCount == currentCapacity - 1) {
       int newCapacity = 2 * currentCapacity;
       CMeta **newMeta = (CMeta**)calloc(newCapacity, sizeof(CMeta*));
-      memcpy(newMeta, md->u.metaGlobalInfo.global->md, currentCapacity);
+      memcpy(newMeta, md->u.metaGlobalInfo.global->md, currentCapacity * sizeof(CMeta*));
+      free(md->u.metaGlobalInfo.global->md);
+      md->u.metaGlobalInfo.global->md = newMeta;
       md->u.metaGlobalInfo.global->metaCapacity = newCapacity;
     }
 
