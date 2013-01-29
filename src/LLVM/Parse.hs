@@ -14,6 +14,7 @@ module LLVM.Parse (
     -- * Types
   ParserOptions(..),
   PositionPrecision(..),
+  TranslationException(..),
   -- * Helpers
   defaultParserOptions,
   -- * Parser
@@ -97,6 +98,8 @@ data TranslationException = TooManyReturnValues
                           | InvalidSwitchTarget Value
                           | InvalidResumeInst !Int
                           | InvalidDataLayout Text String
+                          | UnparsableBitcode String
+                          | NoModule
                           deriving (Show, Typeable)
 instance Exception TranslationException
 
@@ -175,7 +178,7 @@ nextMetaId = genId metaIdSrc
 -- | Parse the named LLVM file into the LLVM form of the IR (a
 -- 'Module').  In the case of an error, a descriptive string will be
 -- returned.  The input file can be either LLVM assembly or bitcode.
-parseLLVMFile :: ParserOptions -> FilePath -> IO (Either String Module)
+parseLLVMFile :: ParserOptions -> FilePath -> IO Module
 parseLLVMFile opts filename = do
   let includeLineNumbers = metaPositionPrecision opts == PositionPrecise
   m <- marshalLLVMFile filename includeLineNumbers
@@ -185,11 +188,11 @@ parseLLVMFile opts filename = do
     True -> do
       Just errMsg <- cModuleErrorMessage m
       disposeCModule m
-      return $! Left errMsg
-    False -> E.catch (translateCModule m) exHandler
+      E.throwIO $ UnparsableBitcode errMsg
+    False -> translateCModule m
 
 -- | Parse LLVM IR from a Handle into a 'Module'
-hParseLLVM :: ParserOptions -> Handle -> IO (Either String Module)
+hParseLLVM :: ParserOptions -> Handle -> IO Module
 hParseLLVM opts h = do
   hSetBinaryMode h True
   bs <- BS.hGetContents h
@@ -197,7 +200,7 @@ hParseLLVM opts h = do
 
 -- | Parse the LLVM IR (either assembly or bitcode) from a lazy ByteString
 -- into a 'Module'.
-parseLLVM :: ParserOptions -> ByteString -> IO (Either String Module)
+parseLLVM :: ParserOptions -> ByteString -> IO Module
 parseLLVM opts content = do
   let includeLineNumbers = metaPositionPrecision opts == PositionPrecise
   unsafeUseAsCStringLen content $ \(s, len) -> do
@@ -207,10 +210,10 @@ parseLLVM opts content = do
       True -> do
         Just errMsg <- cModuleErrorMessage m
         disposeCModule m
-        return $! Left errMsg
-      False -> E.catch (translateCModule m) exHandler
+        E.throwIO $ UnparsableBitcode errMsg
+      False -> translateCModule m
 
-translateCModule :: ModulePtr -> IO (Either String Module)
+translateCModule :: ModulePtr -> IO Module
 translateCModule m = do
   idref <- newIORef 1
   mref <- newIORef 1
@@ -241,20 +244,14 @@ translateCModule m = do
   case result res of
     Just r -> do
       r `deepseq` return ()
-      return $! Right r
-    Nothing -> return $! Left "No module in result"
-
-exHandler :: TranslationException -> IO (Either String Module)
-exHandler ex = return $! Left (show ex)
-
+      return r
+    Nothing -> E.throwIO $ NoModule
 
 isExternVar :: ValuePtr -> KnotMonad Bool
 isExternVar vp = do
   dataPtr <- liftIO $ cValueData vp
   let dataPtr' = castPtr dataPtr
   liftIO $ cGlobalIsExternal dataPtr'
-
-
 
 isExternFunc :: ValuePtr -> KnotMonad Bool
 isExternFunc vp = do

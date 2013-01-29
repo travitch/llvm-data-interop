@@ -1,5 +1,5 @@
 name: llvm-data-interop
-version: 0.1.0
+version: 0.1.1
 synopsis: A low-level data interoperability binding for LLVM
 license: BSD3
 license-file: LICENSE
