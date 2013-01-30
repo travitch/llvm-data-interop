@@ -686,7 +686,7 @@ translateConstOrRef finalState vp = do
         True -> toValue <$> translateConstant finalState vp
         False -> do
           -- This cheats in the knot tying.  The map is read again
-          -- *after* it has been filled in (since these values are not
+          -- /after/ it has been filled in (since these values are not
           -- forced until after the whole module is processed)
           let finalRes = unsafePerformIO $ HT.lookup (valueMap s) key
           return (maybe (throw (KnotTyingFailure tag)) id finalRes)
