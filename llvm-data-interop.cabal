@@ -14,7 +14,7 @@ Description: This package converts the LLVM IR (either bitcode files or LLVM
              traverses the IR and produces a Haskell structure that can be
              pattern matched against in pure code.
 
-             Note that this library only works with LLVM 3.1
+             Note that this library works with llvm 3.0, 3.1, and 3.2.
 
 extra-source-files: configure,
                     llvm-data-interop.buildinfo.in,
@@ -23,10 +23,16 @@ extra-source-files: configure,
 
 library
   default-language: Haskell2010
-  build-depends: base > 3 && < 5, array, bytestring, data-default >= 0.3, containers,
-                 dwarf, deepseq, mtl > 2, hashable >= 1.1.2.0, llvm-base-types,
-                 loch-th >= 0.2, hashtables, vector, unification-fd >= 0.8,
-                 unordered-containers >= 0.2.1.0, transformers, text
+  build-depends: base == 4.*,
+                 data-default >= 0.3,
+                 mtl > 2,
+                 hashable >= 1.1.2.0,
+                 llvm-base-types >= 0.1.1,
+                 loch-th >= 0.2,
+                 unification-fd >= 0.8,
+                 unordered-containers >= 0.2.1.0,
+                 hashtables, vector, transformers, text,
+                 array, bytestring, containers, dwarf, deepseq
   other-modules: LLVM.Internal.Interop
                  LLVM.Internal.TypeUnification
   exposed-modules: LLVM.Parse
