@@ -140,14 +140,14 @@ unifyStructTypes tmap (name, allPtrs) = do
         Just name' <- cTypeName p
         isPacked <- cTypeIsPacked p
         mptrs <- cTypeList p
-        let t = TypeStruct (Just name') (map (delayedLookup tmap) mptrs) isPacked
+        let t = TypeStruct (Right name') (map (delayedLookup tmap) mptrs) isPacked
             ip = fromIntegral (ptrToIntPtr p)
         HT.insert tmap ip t
     Right _ ->
       case ptrs of
         [] -> do
           -- Make a single opaque entry for allPtrs
-          let t = TypeStruct (Just name) [] False
+          let t = TypeStruct (Right name) [] False
           forM_ allPtrs $ \p -> do
             let ip = fromIntegral (ptrToIntPtr p)
             HT.insert tmap ip t
@@ -156,7 +156,7 @@ unifyStructTypes tmap (name, allPtrs) = do
           -- and use it as the entry for each of the input pointers.
           mptrs <- cTypeList p0
           isPacked <- cTypeIsPacked p0
-          let t = TypeStruct (Just name) (map (delayedLookup tmap) mptrs) isPacked
+          let t = TypeStruct (Right name) (map (delayedLookup tmap) mptrs) isPacked
           forM_ allPtrs $ \p -> do
             let ip = fromIntegral (ptrToIntPtr p)
             HT.insert tmap ip t
@@ -178,7 +178,7 @@ translateAndGroup tmap structs tptr = do
           isPacked <- cTypeIsPacked tptr
           ptrs <- cTypeList tptr
           let ts = map (delayedLookup tmap) ptrs
-          HT.insert tmap ip (TypeStruct Nothing ts isPacked)
+          HT.insert tmap ip (TypeStruct (Left ip) ts isPacked)
           return structs
     _ -> do
       t' <- case tag of

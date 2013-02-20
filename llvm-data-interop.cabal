@@ -1,5 +1,5 @@
 name: llvm-data-interop
-version: 0.1.1
+version: 0.2.0
 synopsis: A low-level data interoperability binding for LLVM
 license: BSD3
 license-file: LICENSE
@@ -27,7 +27,7 @@ library
                  data-default >= 0.3,
                  mtl > 2,
                  hashable >= 1.1.2.0,
-                 llvm-base-types >= 0.1.1,
+                 llvm-base-types >= 0.2.0,
                  loch-th >= 0.2,
                  unification-fd >= 0.8,
                  unordered-containers >= 0.2.1.0,
