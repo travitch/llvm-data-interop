@@ -54,6 +54,7 @@ import Data.Map ( Map )
 import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
 import Data.Monoid
+import qualified Data.Text as T
 import Data.Word ( Word64 )
 import Debug.Trace.LocationTH
 import Foreign.Ptr
@@ -140,14 +141,14 @@ unifyStructTypes tmap (name, allPtrs) = do
         Just name' <- cTypeName p
         isPacked <- cTypeIsPacked p
         mptrs <- cTypeList p
-        let t = TypeStruct (Right name') (map (delayedLookup tmap) mptrs) isPacked
+        let t = TypeStruct (Right (T.pack name')) (map (delayedLookup tmap) mptrs) isPacked
             ip = fromIntegral (ptrToIntPtr p)
         HT.insert tmap ip t
     Right _ ->
       case ptrs of
         [] -> do
           -- Make a single opaque entry for allPtrs
-          let t = TypeStruct (Right name) [] False
+          let t = TypeStruct (Right (T.pack name)) [] False
           forM_ allPtrs $ \p -> do
             let ip = fromIntegral (ptrToIntPtr p)
             HT.insert tmap ip t
@@ -156,7 +157,7 @@ unifyStructTypes tmap (name, allPtrs) = do
           -- and use it as the entry for each of the input pointers.
           mptrs <- cTypeList p0
           isPacked <- cTypeIsPacked p0
-          let t = TypeStruct (Right name) (map (delayedLookup tmap) mptrs) isPacked
+          let t = TypeStruct (Right (T.pack name)) (map (delayedLookup tmap) mptrs) isPacked
           forM_ allPtrs $ \p -> do
             let ip = fromIntegral (ptrToIntPtr p)
             HT.insert tmap ip t
