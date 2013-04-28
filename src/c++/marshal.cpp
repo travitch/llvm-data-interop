@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <set>
 #include <sstream>
 #include <string>
@@ -13,6 +14,7 @@
 #include <tr1/unordered_map>
 
 #include <llvm/CallingConv.h>
+#include <llvm/DataLayout.h>
 #include <llvm/InlineAsm.h>
 #include <llvm/IntrinsicInst.h>
 #include <llvm/Instructions.h>
@@ -30,16 +32,17 @@
 #include <llvm/Support/system_error.h>
 
 #include <llvm/Config/llvm-config.h>
-// LLVM 3.0 does not set the version macros, so test that first.
-#if !defined(LLVM_VERSION_MAJOR)
+
+// LLVM 3.0 does not define LLVM_VERSION_MAJOR
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 3 && LLVM_VERSION_MINOR >= 2
+  // LLVM 3.2 moved the debug info header and renamed TargetData
+  // to DataLayout
+  #include <llvm/DebugInfo.h>
+  #include <llvm/DataLayout.h>
+#else
   #include <llvm/Analysis/DebugInfo.h>
-#elif LLVM_VERSION_MAJOR >= 3
-  #if LLVM_VERSION_MINOR >= 2
-    // LLVM 3.2 moved the debug info header
-    #include <llvm/DebugInfo.h>
-  #else
-    #include <llvm/Analysis/DebugInfo.h>
-  #endif
+  #include <llvm/Target/TargetData.h>
+  #define DataLayout TargetData
 #endif
 
 using namespace llvm;
@@ -54,6 +57,7 @@ struct PrivateData {
   // Foreign callers do not need to access below this point.
   Module* original;
   int includeLocs;
+  DataLayout *dataLayout;
 
   // This map is actually state only for this translation code.  Since
   // types have pointer equality in LLVM, every type will just be
@@ -983,7 +987,9 @@ static CMeta* translateMetadataArray(CModule *m, const MDNode *md) {
   return meta;
 }
 
-static CType* translateType(CModule *m, const Type *t) {
+// The Type parameter would be const, except
+// DataLayout::getTypeSizeInBits() is not const for some reason.
+static CType* translateType(CModule *m, Type *t) {
   PrivateData *pd = (PrivateData*)m->privateData;
   unordered_map<const Type*,CType*>::const_iterator it = pd->typeMap.find(t);
   if(it != pd->typeMap.end())
@@ -991,6 +997,9 @@ static CType* translateType(CModule *m, const Type *t) {
 
   CType *ret = (CType*)calloc(1, sizeof(CType));
   ret->typeTag = decodeTypeTag(t->getTypeID());
+  ret->sizeInBytes = 0;
+  if(t->isSized())
+    ret->sizeInBytes = std::ceil(pd->dataLayout->getTypeSizeInBits(t) / 8.0);
 
   // Need to put this in the table before making any recursive calls,
   // otherwise it might never terminate.
@@ -2556,7 +2565,8 @@ extern "C" {
     }
 
 
-    // These two are actually allocated with new
+    // These are actually allocated with new
+    delete pd->dataLayout;
     delete pd->original;
     delete pd;
 
@@ -2569,6 +2579,7 @@ extern "C" {
     module->privateData = (void*)pd;
 
     Module *m = ParseIRFile(filename, pd->diags, pd->ctxt);
+    pd->dataLayout = new DataLayout(m);
 
     if(m == NULL) {
       module->hasError = 1;

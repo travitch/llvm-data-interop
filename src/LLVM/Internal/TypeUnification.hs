@@ -84,30 +84,43 @@ type TTerm = UTerm T IntVar
 typeTerm :: String -> [TTerm] -> TTerm
 typeTerm = (UTerm .) . T
 
-unifyTypes :: [TypePtr] -> IO (BasicHashTable Word64 Type)
+unifyTypes :: [TypePtr] -> IO (BasicHashTable Word64 Type, Map Type Int)
 unifyTypes tptrs = do
   tmap <- HT.new
+  smap <- HT.new
 
   -- Translate all non-struct types directly into the hash table.  The
   -- fold only accumulates struct types (including unions and classes) into
   -- a HashMap from name to ptr.
   --
   -- This accumulated map is the one that will be unified over.
-  structsByName <- foldM (translateAndGroup tmap) mempty tptrs
+  structsByName <- foldM (translateAndGroup tmap smap) mempty tptrs
 
   -- Now, for each name in structsByName, attempt to unify all of the
   -- types in the group.  For each type that does unify, make an entry
   -- in tmap for its pointer to the single representative Type.  For
   -- the rest, do a basic translation.
-  mapM_ (unifyStructTypes tmap) (HM.toList structsByName)
+  mapM_ (unifyStructTypes tmap smap) (HM.toList structsByName)
 
-  return tmap
+  typeSizes <- HT.foldM (htToMap tmap) mempty smap
+
+  return (tmap, typeSizes)
+
+htToMap :: BasicHashTable Word64 Type
+        -> Map Type Int
+        -> (Word64, Int)
+        -> IO (Map Type Int)
+htToMap tmap a (ip, v) = do
+  Just t <- HT.lookup tmap ip
+  return $ M.insert t v a
 
 unifyStructTypes :: BasicHashTable Word64 Type
-                    -> (String, [TypePtr])
-                    -> IO ()
-unifyStructTypes tmap (name, allPtrs) = do
-  ptrs <- filterM isNotOpaque allPtrs
+                 -> BasicHashTable Word64 Int
+                 -> (String, [(TypePtr, Int)])
+                 -> IO ()
+unifyStructTypes tmap smap (name, allPtrs) = do
+  sizedPtrs <- filterM (isNotOpaque . fst) allPtrs
+  let ptrs = map fst sizedPtrs
   -- All of the types reachable from the list of input types @ptrs@
   retainedTypes <- retainedTypeSearch ptrs
 
@@ -137,49 +150,56 @@ unifyStructTypes tmap (name, allPtrs) = do
   case unifyResult of
     Left _ ->
       -- Make an entry in tmap for each input
-      forM_ allPtrs $ \p -> do
+      forM_ allPtrs $ \(p, sz) -> do
         Just name' <- cTypeName p
         isPacked <- cTypeIsPacked p
         mptrs <- cTypeList p
         let t = TypeStruct (Right (T.pack name')) (map (delayedLookup tmap) mptrs) isPacked
             ip = fromIntegral (ptrToIntPtr p)
         HT.insert tmap ip t
+        HT.insert smap ip sz
     Right _ ->
-      case ptrs of
+      case sizedPtrs of
         [] -> do
           -- Make a single opaque entry for allPtrs
           let t = TypeStruct (Right (T.pack name)) [] False
-          forM_ allPtrs $ \p -> do
+          forM_ allPtrs $ \(p, sz) -> do
             let ip = fromIntegral (ptrToIntPtr p)
             HT.insert tmap ip t
-        p0 : _ -> do
+            HT.insert smap ip sz
+        (p0, _) : _ -> do
           -- Make one type to represent all of these types that were unified
           -- and use it as the entry for each of the input pointers.
           mptrs <- cTypeList p0
           isPacked <- cTypeIsPacked p0
           let t = TypeStruct (Right (T.pack name)) (map (delayedLookup tmap) mptrs) isPacked
-          forM_ allPtrs $ \p -> do
+          forM_ allPtrs $ \(p, sz) -> do
             let ip = fromIntegral (ptrToIntPtr p)
             HT.insert tmap ip t
+            HT.insert smap ip sz
 
 translateAndGroup :: BasicHashTable Word64 Type
-                     -> HashMap String [TypePtr]
-                     -> TypePtr
-                     -> IO (HashMap String [TypePtr])
-translateAndGroup tmap structs tptr = do
+                  -> BasicHashTable Word64 Int
+                  -> HashMap String [(TypePtr, Int)]
+                  -> TypePtr
+                  -> IO (HashMap String [(TypePtr, Int)])
+translateAndGroup tmap sizeMap structs tptr = do
   let ip = fromIntegral $ ptrToIntPtr tptr
   tag <- cTypeTag tptr
+  byteSize <- cTypeSizeInBytes tptr
+  HT.insert sizeMap ip byteSize
   case tag of
     TYPE_STRUCT -> do
       name <- cTypeName tptr
       case name of
-        Just n -> return $ HM.insertWith (++) (structBaseName n) [tptr] structs
+        Just n -> return $ HM.insertWith (++) (structBaseName n) [(tptr, byteSize)] structs
         -- Anonymous struct
         Nothing -> do
           isPacked <- cTypeIsPacked tptr
           ptrs <- cTypeList tptr
           let ts = map (delayedLookup tmap) ptrs
-          HT.insert tmap ip (TypeStruct (Left ip) ts isPacked)
+              stype = TypeStruct (Left ip) ts isPacked
+          HT.insert tmap ip stype
           return structs
     _ -> do
       t' <- case tag of

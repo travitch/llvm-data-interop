@@ -29,6 +29,9 @@ struct CType_t {
 
   // For TypePointer
   int addrSpace;
+
+  // For all types
+  int sizeInBytes;
 };
 
 typedef struct {

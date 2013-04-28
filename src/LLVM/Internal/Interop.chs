@@ -131,6 +131,9 @@ cTypeName t = do
 cTypeAddrSpace :: TypePtr -> IO Int
 cTypeAddrSpace t = fromIntegral <$> {#get CType->addrSpace#} t
 
+cTypeSizeInBytes :: TypePtr -> IO Int
+cTypeSizeInBytes t = fromIntegral <$> {#get CType->sizeInBytes#} t
+
 data CValue
 {#pointer *CValue as ValuePtr -> CValue #}
 data CMeta

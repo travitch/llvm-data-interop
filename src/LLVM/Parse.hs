@@ -36,6 +36,8 @@ import Data.Set ( Set )
 import qualified Data.HashTable.IO as HT
 import qualified Data.Set as S
 import Data.Maybe ( catMaybes )
+import Data.Map ( Map )
+import qualified Data.Map as M
 import Data.Monoid
 import Data.Text ( Text )
 import Data.Typeable
@@ -236,10 +238,10 @@ translateCModule m = do
   -- translation simpler since there will be no type knot.  This also
   -- means that
   modTypes <- cModuleTypes m
-  tyMap <- unifyTypes modTypes
+  (tyMap, typeSizes) <- unifyTypes modTypes
 
   let s0 = emptyState idref mref valMap mmMap tyMap sCache iCache
-  res <- evalStateT (mfix (tieKnot m)) s0
+  res <- evalStateT (mfix (tieKnot m typeSizes)) s0
   disposeCModule m
   case result res of
     Just r -> do
@@ -272,8 +274,8 @@ pMHelper p xs = foldM help (id,id) xs
       b <- p x
       return (if b then (f . (x:),g) else (f,g . (x:)))
 
-tieKnot :: ModulePtr -> KnotState -> KnotMonad KnotState
-tieKnot m finalState = do
+tieKnot :: ModulePtr -> Map Type Int -> KnotState -> KnotMonad KnotState
+tieKnot m typeSizes finalState = do
   modIdent <- liftIO $ cModuleIdentifier m
   dataLayout <- liftIO $ cModuleDataLayout m
   triple <- liftIO $ cModuleTargetTriple m
@@ -317,6 +319,7 @@ tieKnot m finalState = do
                       , moduleRetainedTypeMetadata = typeMeta
                       , moduleRetainedTypes = unique $ map snd tm
                       , moduleNextId = lastId + 1
+                      , moduleTypeSizes = \t -> M.lookup t typeSizes
                       }
       return s { result = Just ir }
 
