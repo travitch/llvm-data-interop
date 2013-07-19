@@ -272,8 +272,6 @@ cMetaCompileUnitDirectory :: InternString m => MetaPtr -> m Text
 cMetaCompileUnitDirectory = shareString {#get CMeta->u.metaCompileUnitInfo.directory#}
 cMetaCompileUnitProducer :: InternString m => MetaPtr -> m Text
 cMetaCompileUnitProducer = shareString {#get CMeta->u.metaCompileUnitInfo.producer#}
-cMetaCompileUnitIsMain :: MetaPtr -> IO Bool
-cMetaCompileUnitIsMain p = toBool <$> {#get CMeta->u.metaCompileUnitInfo.isMain#} p
 cMetaCompileUnitIsOptimized :: MetaPtr -> IO Bool
 cMetaCompileUnitIsOptimized p = toBool <$> {#get CMeta->u.metaCompileUnitInfo.isOptimized#} p
 cMetaCompileUnitFlags :: InternString m => MetaPtr -> m Text
