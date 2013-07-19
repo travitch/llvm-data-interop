@@ -78,6 +78,24 @@ using std::ostringstream;
 using std::string;
 using std::tr1::unordered_map;
 
+// Utility functions for compatibility with different versions of the LLVM API
+static int64_t getHiDISubrange(llvm::DISubrange& subrange) {
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+	return subrange.getLo() + subrange.getCount();
+#else
+	return subrange.getHi();
+#endif
+}
+
+// Get C string and run strdup on it - caller takes ownership.
+static char *getCStrdup(StringRef str) {
+	return strndup(str.data(), str.size());
+}
+
+static char *getCStrdup(std::string &str) {
+	return strdup(str.c_str());
+}
+
 struct PrivateData {
   LLVMContext ctxt;
   SMDiagnostic diags;
@@ -2650,30 +2668,4 @@ extern "C" {
 
     return marshal(module);
   }
-}
-
-// Utility functions for compatibility with different versions of the LLVM API
-StringRef getFileDIScope(llvm::DIScope& scope) {
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
-	return scope.getFilename();
-#else
-	return scope.getFile();
-#endif
-}
-
-int64_t getHiDISubrange(llvm::DISubrange& subrange) {
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
-	return subrange.getLo() + subrange.getCount();
-#else
-	return subrange.getHi();
-#endif
-}
-
-// Get C string and run strdup on it - caller takes ownership.
-char *getCStrdup(StringRef &str) {
-	return strndup(str.data(), str.size());
-}
-
-char *getCStrdup(std::string &str) {
-	return strdup(str.c_str());
 }
