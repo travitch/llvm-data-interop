@@ -1742,7 +1742,6 @@ translateMetadata' finalState mp = do
       fname <- cMetaCompileUnitFilename mp
       dir <- cMetaCompileUnitDirectory mp
       producer <- cMetaCompileUnitProducer mp
-      isMain <- liftIO $ cMetaCompileUnitIsMain mp
       isOpt <- liftIO $ cMetaCompileUnitIsOptimized mp
       flags <- cMetaCompileUnitFlags mp
       rv <- liftIO $ cMetaCompileUnitRuntimeVersion mp

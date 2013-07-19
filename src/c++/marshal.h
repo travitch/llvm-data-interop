@@ -111,7 +111,6 @@ typedef struct {
   char *filename;
   char *directory;
   char *producer;
-  int isMain;
   int isOptimized;
   char *flags;
   unsigned runtimeVersion;

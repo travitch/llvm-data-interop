@@ -821,7 +821,6 @@ static void makeMetaCompileUnit(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaCompileUnitInfo.filename = strdup(dc.getFilename().str().c_str());
   meta->u.metaCompileUnitInfo.directory = strdup(dc.getDirectory().str().c_str());
   meta->u.metaCompileUnitInfo.producer = strdup(dc.getProducer().str().c_str());
-  meta->u.metaCompileUnitInfo.isMain = dc.isMain();
   meta->u.metaCompileUnitInfo.isOptimized = dc.isOptimized();
   meta->u.metaCompileUnitInfo.flags = strdup(dc.getFlags().str().c_str());
   meta->u.metaCompileUnitInfo.runtimeVersion = dc.getRunTimeVersion();
