@@ -1760,7 +1760,6 @@ translateMetadata' finalState mp = do
                                , metaCompileUnitSourceFile = fname
                                , metaCompileUnitCompileDir = dir
                                , metaCompileUnitProducer = producer
-                               , metaCompileUnitIsMain = isMain
                                , metaCompileUnitIsOpt = isOpt
                                , metaCompileUnitFlags = flags
                                , metaCompileUnitVersion = rv
