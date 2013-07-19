@@ -704,7 +704,7 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   DIDerivedType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.file = translateMetadata(m, getFileDIScope(dt));
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -879,7 +879,7 @@ static void makeMetaLexicalBlock(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaSubrange(CModule *, const MDNode *md, CMeta *meta) {
   DISubrange ds(md);
   meta->u.metaSubrangeInfo.lo = ds.getLo();
-  meta->u.metaSubrangeInfo.hi = ds.getHi();
+  meta->u.metaSubrangeInfo.hi = getHiDISubrange(ds);
 }
 
 static void makeMetaEnumerator(CModule *, const MDNode *md, CMeta *meta) {
@@ -2610,7 +2610,7 @@ extern "C" {
 
     if(m == NULL) {
       module->hasError = 1;
-      module->errMsg = strdup(pd->diags.getMessage().c_str());
+      module->errMsg = getCStrdup(pd->diags.getMessage());
       return module;
     }
 
@@ -2638,7 +2638,7 @@ extern "C" {
 
     if(m == NULL) {
       module->hasError = 1;
-      module->errMsg = strdup(pd->diags.getMessage().c_str());
+      module->errMsg = getCStrdup(pd->diags.getMessage());
       return module;
     }
 
@@ -2647,4 +2647,30 @@ extern "C" {
 
     return marshal(module);
   }
+}
+
+// Utility functions for compatibility with different versions of the LLVM API
+StringRef getFileDIScope(llvm::DIScope& scope) {
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+	return scope.getFilename();
+#else
+	return scope.getFile();
+#endif
+}
+
+int64_t getHiDISubrange(llvm::DISubrange& subrange) {
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+	return subrange.getLo() + subrange.getCount();
+#else
+	return subrange.getHi();
+#endif
+}
+
+// Get C string and run strdup on it - caller takes ownership.
+char *getCStrdup(StringRef &str) {
+	return strndup(str.data(), str.size());
+}
+
+char *getCStrdup(std::string &str) {
+	return strdup(str.c_str());
 }
