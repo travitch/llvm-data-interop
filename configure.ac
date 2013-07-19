@@ -95,8 +95,16 @@ llvm_libdir="`$llvm_config --libdir`"
 CPPFLAGS="$llvm_cppflags $CPPFLAGS $TARGET_CPPFLAGS"
 LDFLAGS="$llvm_ldflags $LDFLAGS $TARGET_LDFLAGS"
 
-AC_CHECK_HEADERS([llvm/Module.h], [],
-  [AC_MSG_ERROR(could not find LLVM headers)])
+AC_PREPROC_IFELSE(
+  [AC_LANG_PROGRAM([#include <llvm/Config/llvm-config.h>],
+    [#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3],
+    [#error new llvm],
+    [#endif])],
+  [llvm_module_h="llvm/Module.h"],
+  [llvm_module_h="llvm/IR/Module.h"])
+
+AC_CHECK_HEADER([${llvm_module_h}], [],
+  [AC_MSG_ERROR([LLVM headers not found or not usable])])
 
 # We have to link using the C++ compiler.
 CC=$CXX
@@ -104,7 +112,7 @@ CC=$CXX
 save_LIBS="$LIBS"
 
 AC_LINK_IFELSE(
-  [AC_LANG_PROGRAM([#include <llvm/Module.h>],
+  [AC_LANG_PROGRAM([#include <${llvm_module_h}>],
     [llvm::Module *dummy])],
   [LIBS="-lLLVM-${llvm_version} $LIBS"] [HAVE_LLVM=1],
   [AC_MSG_ERROR(["The llvm-${llvm_version} shared library is not installed"])])
