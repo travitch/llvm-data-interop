@@ -111,7 +111,6 @@ typedef struct {
   char *filename;
   char *directory;
   char *producer;
-  int isMain;
   int isOptimized;
   char *flags;
   unsigned runtimeVersion;
@@ -175,7 +174,6 @@ typedef struct {
   CMeta *context;
   char *name;
   // CMeta *compileUnit;
-  CMeta *file;
   unsigned lineNumber;
   uint64_t sizeInBits;
   uint64_t alignInBits;

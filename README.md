@@ -12,7 +12,7 @@ work.
 
 Note that this library only works with LLVM 3.0-3.2, and will try to
 retain as much compatibility with future and past versions as is
-reasonable.
+reasonable. Preliminary support for LLVM 3.3 has been added.
 
 # Installation Notes
 

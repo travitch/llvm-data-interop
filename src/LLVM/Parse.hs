@@ -1529,7 +1529,8 @@ translateMetadata' finalState mp = do
     MetaDerivedtype -> do
       ctxt <- liftIO $ cMetaTypeContext mp
       name <- cMetaTypeName mp
-      f <- liftIO $ cMetaTypeFile mp
+      filename <- cMetaTypeFilename mp
+      directory <- cMetaTypeDirectory mp
       line <- liftIO $ cMetaTypeLine mp
       size <- liftIO $ cMetaTypeSize mp
       align <- liftIO $ cMetaTypeAlign mp
@@ -1542,7 +1543,6 @@ translateMetadata' finalState mp = do
       isProt <- liftIO $ cMetaTypeIsProtected mp
       isPriv <- liftIO $ cMetaTypeIsPrivate mp
 
-      f' <- maybeTranslateMetadataRec finalState f
       ctxt' <- maybeTranslateMetadataRec finalState ctxt
       parent' <- maybeTranslateMetadataRec finalState parent
 
@@ -1551,7 +1551,8 @@ translateMetadata' finalState mp = do
       return MetaDWDerivedType { metaValueUniqueId = uid
                                , metaDerivedTypeContext = ctxt'
                                , metaDerivedTypeName = name
-                               , metaDerivedTypeFile = f'
+                               , metaDerivedTypeFilename = filename
+                               , metaDerivedTypeDirectory = directory
                                , metaDerivedTypeLine = line
                                , metaDerivedTypeSize = size
                                , metaDerivedTypeAlign = align
@@ -1567,7 +1568,8 @@ translateMetadata' finalState mp = do
     MetaCompositetype -> do
       ctxt <- liftIO $ cMetaTypeContext mp
       name <- cMetaTypeName mp
-      f <- liftIO $ cMetaTypeFile mp
+      filename <- cMetaTypeFilename mp
+      directory <- cMetaTypeDirectory mp
       line <- liftIO $ cMetaTypeLine mp
       size <- liftIO $ cMetaTypeSize mp
       align <- liftIO $ cMetaTypeAlign mp
@@ -1586,7 +1588,6 @@ translateMetadata' finalState mp = do
       isByRef <- liftIO $ cMetaTypeIsByRefStruct mp
 
       ctxt' <- maybeTranslateMetadataRec finalState ctxt
-      f' <- maybeTranslateMetadataRec finalState f
       parent' <- maybeTranslateMetadataRec finalState parent
       members' <- maybeTranslateMetadataRec finalState members
       ctype' <- maybeTranslateMetadataRec finalState ctype
@@ -1598,7 +1599,8 @@ translateMetadata' finalState mp = do
                                  , metaCompositeTypeTag = tag
                                  , metaCompositeTypeContext = ctxt'
                                  , metaCompositeTypeName = name
-                                 , metaCompositeTypeFile = f'
+                                 , metaCompositeTypeFilename = filename
+                                 , metaCompositeTypeDirectory = directory
                                  , metaCompositeTypeLine = line
                                  , metaCompositeTypeSize = size
                                  , metaCompositeTypeAlign = align
@@ -1619,7 +1621,8 @@ translateMetadata' finalState mp = do
     MetaBasictype -> do
       ctxt <- liftIO $ cMetaTypeContext mp
       name <- cMetaTypeName mp
-      f <- liftIO $ cMetaTypeFile mp
+      filename <- cMetaTypeFilename mp
+      directory <- cMetaTypeDirectory mp
       line <- liftIO $ cMetaTypeLine mp
       size <- liftIO $ cMetaTypeSize mp
       align <- liftIO $ cMetaTypeAlign mp
@@ -1628,12 +1631,12 @@ translateMetadata' finalState mp = do
       encoding <- liftIO $ cMetaTypeEncoding mp
 
       ctxt' <- maybeTranslateMetadataRec finalState ctxt
-      f' <- maybeTranslateMetadataRec finalState f
 
       return MetaDWBaseType { metaValueUniqueId = uid
                             , metaBaseTypeContext = ctxt'
                             , metaBaseTypeName = name
-                            , metaBaseTypeFile = f'
+                            , metaBaseTypeFilename = filename
+                            , metaBaseTypeDirectory = directory
                             , metaBaseTypeLine = line
                             , metaBaseTypeSize = size
                             , metaBaseTypeAlign = align
@@ -1742,7 +1745,6 @@ translateMetadata' finalState mp = do
       fname <- cMetaCompileUnitFilename mp
       dir <- cMetaCompileUnitDirectory mp
       producer <- cMetaCompileUnitProducer mp
-      isMain <- liftIO $ cMetaCompileUnitIsMain mp
       isOpt <- liftIO $ cMetaCompileUnitIsOptimized mp
       flags <- cMetaCompileUnitFlags mp
       rv <- liftIO $ cMetaCompileUnitRuntimeVersion mp
@@ -1761,7 +1763,6 @@ translateMetadata' finalState mp = do
                                , metaCompileUnitSourceFile = fname
                                , metaCompileUnitCompileDir = dir
                                , metaCompileUnitProducer = producer
-                               , metaCompileUnitIsMain = isMain
                                , metaCompileUnitIsOpt = isOpt
                                , metaCompileUnitFlags = flags
                                , metaCompileUnitVersion = rv

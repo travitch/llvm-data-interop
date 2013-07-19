@@ -13,42 +13,88 @@
 #include <vector>
 #include <tr1/unordered_map>
 
-#include <llvm/CallingConv.h>
-#include <llvm/DataLayout.h>
-#include <llvm/InlineAsm.h>
-#include <llvm/IntrinsicInst.h>
-#include <llvm/Instructions.h>
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
-#include <llvm/Operator.h>
-#include <llvm/Type.h>
-#include <llvm/DerivedTypes.h>
 #include <llvm/ADT/OwningPtr.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Bitcode/ReaderWriter.h>
-#include <llvm/Support/IRReader.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/system_error.h>
+#include <llvm/Support/SourceMgr.h>
 
 #include <llvm/Config/llvm-config.h>
 
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR > 3
+  #error "LLVM 4.0 or greater not supported."
+#endif
+
 // LLVM 3.0 does not define LLVM_VERSION_MAJOR
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 3 && LLVM_VERSION_MINOR >= 2
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 2
   // LLVM 3.2 moved the debug info header and renamed TargetData
   // to DataLayout
   #include <llvm/DebugInfo.h>
-  #include <llvm/DataLayout.h>
+	#if LLVM_VERSION_MINOR >= 3
+    #include <llvm/IR/DataLayout.h>
+  #else
+    #include <llvm/DataLayout.h>
+  #endif
 #else
+  // LLVM 3.0/3.1
   #include <llvm/Analysis/DebugInfo.h>
   #include <llvm/Target/TargetData.h>
   #define DataLayout TargetData
+#endif
+
+
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+  // LLVM 3.3 moved these header files into IR
+  #include <llvm/IR/CallingConv.h>
+  #include <llvm/IR/DataLayout.h>
+  #include <llvm/IR/DerivedTypes.h>
+  #include <llvm/IR/InlineAsm.h>
+  #include <llvm/IR/IntrinsicInst.h>
+  #include <llvm/IR/Instructions.h>
+  #include <llvm/IR/LLVMContext.h>
+  #include <llvm/IR/Module.h>
+  #include <llvm/IR/Operator.h>
+  #include <llvm/IR/Type.h>
+  #include <llvm/IRReader/IRReader.h>
+#else
+  // LLVM 3.0/3.1/3.2
+  #include <llvm/CallingConv.h>
+  #include <llvm/DataLayout.h>
+  #include <llvm/DerivedTypes.h>
+  #include <llvm/InlineAsm.h>
+  #include <llvm/IntrinsicInst.h>
+  #include <llvm/Instructions.h>
+  #include <llvm/LLVMContext.h>
+  #include <llvm/Module.h>
+  #include <llvm/Operator.h>
+  #include <llvm/Type.h>
+  #include <llvm/Support/IRReader.h>
 #endif
 
 using namespace llvm;
 using std::ostringstream;
 using std::string;
 using std::tr1::unordered_map;
+
+// Utility functions for compatibility with different versions of the LLVM API
+static int64_t getHiDISubrange(llvm::DISubrange& subrange) {
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+	return subrange.getLo() + subrange.getCount();
+#else
+	return subrange.getHi();
+#endif
+}
+
+// Get C string and run strdup on it - caller takes ownership.
+static char *getCStrdup(StringRef str) {
+	return strndup(str.data(), str.size());
+}
+
+static char *getCStrdup(std::string &str) {
+	return strdup(str.c_str());
+}
 
 struct PrivateData {
   LLVMContext ctxt;
@@ -676,7 +722,8 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   DIDerivedType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -699,7 +746,8 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   DICompositeType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -727,7 +775,8 @@ static void makeMetaBasicType(CModule *m, const MDNode *md, CMeta *meta) {
   DIBasicType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -821,7 +870,6 @@ static void makeMetaCompileUnit(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaCompileUnitInfo.filename = strdup(dc.getFilename().str().c_str());
   meta->u.metaCompileUnitInfo.directory = strdup(dc.getDirectory().str().c_str());
   meta->u.metaCompileUnitInfo.producer = strdup(dc.getProducer().str().c_str());
-  meta->u.metaCompileUnitInfo.isMain = dc.isMain();
   meta->u.metaCompileUnitInfo.isOptimized = dc.isOptimized();
   meta->u.metaCompileUnitInfo.flags = strdup(dc.getFlags().str().c_str());
   meta->u.metaCompileUnitInfo.runtimeVersion = dc.getRunTimeVersion();
@@ -852,7 +900,7 @@ static void makeMetaLexicalBlock(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaSubrange(CModule *, const MDNode *md, CMeta *meta) {
   DISubrange ds(md);
   meta->u.metaSubrangeInfo.lo = ds.getLo();
-  meta->u.metaSubrangeInfo.hi = ds.getHi();
+  meta->u.metaSubrangeInfo.hi = getHiDISubrange(ds);
 }
 
 static void makeMetaEnumerator(CModule *, const MDNode *md, CMeta *meta) {
@@ -2583,7 +2631,7 @@ extern "C" {
 
     if(m == NULL) {
       module->hasError = 1;
-      module->errMsg = strdup(pd->diags.getMessage().c_str());
+      module->errMsg = getCStrdup(pd->diags.getMessage());
       return module;
     }
 
@@ -2611,7 +2659,7 @@ extern "C" {
 
     if(m == NULL) {
       module->hasError = 1;
-      module->errMsg = strdup(pd->diags.getMessage().c_str());
+      module->errMsg = getCStrdup(pd->diags.getMessage());
       return module;
     }
 
