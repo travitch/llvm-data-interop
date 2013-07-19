@@ -348,8 +348,10 @@ cMetaTypeName :: InternString m => MetaPtr -> m Text
 cMetaTypeName = shareString {#get CMeta->u.metaTypeInfo.name#}
 -- cMetaTypeCompileUnit :: MetaPtr -> IO (Maybe MetaPtr)
 -- cMetaTypeCompileUnit = optionalField {#get CMeta->u.metaTypeInfo.compileUnit#}
-cMetaTypeFile :: MetaPtr -> IO (Maybe MetaPtr)
-cMetaTypeFile = optionalField {#get CMeta->u.metaTypeInfo.file#}
+cMetaTypeFilename :: InternString m => MetaPtr -> m Text
+cMetaTypeFilename = shareString {#get CMeta->u.metaTypeInfo.filename#}
+cMetaTypeDirectory :: InternString m => MetaPtr -> m Text
+cMetaTypeDirectory = shareString {#get CMeta->u.metaTypeInfo.filename#}
 cMetaTypeLine :: MetaPtr -> IO Int32
 cMetaTypeLine p = fromIntegral <$> {#get CMeta->u.metaTypeInfo.lineNumber#} p
 cMetaTypeSize :: MetaPtr -> IO Int64

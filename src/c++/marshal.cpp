@@ -704,7 +704,8 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   DIDerivedType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, getFileDIScope(dt));
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -727,7 +728,8 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   DICompositeType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -755,7 +757,8 @@ static void makeMetaBasicType(CModule *m, const MDNode *md, CMeta *meta) {
   DIBasicType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();

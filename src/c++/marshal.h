@@ -174,7 +174,6 @@ typedef struct {
   CMeta *context;
   char *name;
   // CMeta *compileUnit;
-  CMeta *file;
   unsigned lineNumber;
   uint64_t sizeInBits;
   uint64_t alignInBits;
