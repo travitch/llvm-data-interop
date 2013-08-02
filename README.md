@@ -10,7 +10,7 @@ also uses libstdc++.  This can make linking tricky sometimes.  For
 example, mixing template-haskell with C++-linked code does not seem to
 work.
 
-Note that this library only works with LLVM 3.0-3.2, and will try to
+Note that this library only works with LLVM 3.0-3.3, and will try to
 retain as much compatibility with future and past versions as is
 reasonable.
 
@@ -26,3 +26,12 @@ reasonable.
 You need the development libraries and headers, so be sure to install
 the llvm-3.X-dev package, where X is the version you would like to
 use.  You will also need clang.
+
+# Changes
+
+## v0.3.0
+
+ * Support LLVM-3.3 (contributed by Patrick Hulin)
+ * Minor breaking change in MetaDW*Type.  These no longer have a
+   MetaDWFile; instead, they directly contain their file and directory
+   information.
