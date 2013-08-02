@@ -1,4 +1,4 @@
-AC_INIT([Haskell LLVM data interoperability], [0.1.0], [travitch@cs.wisc.edu], [llvm-data-interop])
+AC_INIT([Haskell LLVM data interoperability], [0.3.0], [tristan@nochair.net], [llvm-data-interop])
 
 AC_LANG(C++)
 
@@ -26,7 +26,7 @@ AC_ARG_WITH(llvm_bindir,
   llvm_bindir="$withval",
   llvm_bindir="$llvm_prefix/bin")dnl
 
-AC_PATH_PROGS(llvm_config, [llvm-config-3.2 llvm-config-3.1 llvm-config],
+AC_PATH_PROGS(llvm_config, [llvm-config-3.3 llvm-config-3.2 llvm-config-3.1 llvm-config],
   [AC_MSG_ERROR(could not find llvm-config in $llvm_bindir)],
   ["$llvm_bindir:$PATH"])
 
@@ -95,7 +95,15 @@ llvm_libdir="`$llvm_config --libdir`"
 CPPFLAGS="$llvm_cppflags $CPPFLAGS $TARGET_CPPFLAGS"
 LDFLAGS="$llvm_ldflags $LDFLAGS $TARGET_LDFLAGS"
 
-AC_CHECK_HEADERS([llvm/Module.h], [],
+AC_PREPROC_IFELSE(
+  [AC_LANG_PROGRAM([#include <llvm/Config/llvm-config.h>],
+    [#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3],
+    [#error llvm >= 3.3],
+    [#endif])],
+  [llvm_module_h="llvm/Module.h"],
+  [llvm_module_h="llvm/IR/Module.h"])
+
+AC_CHECK_HEADERS([${llvm_module_h}], [],
   [AC_MSG_ERROR(could not find LLVM headers)])
 
 # We have to link using the C++ compiler.
@@ -104,7 +112,7 @@ CC=$CXX
 save_LIBS="$LIBS"
 
 AC_LINK_IFELSE(
-  [AC_LANG_PROGRAM([#include <llvm/Module.h>],
+  [AC_LANG_PROGRAM([#include <${llvm_module_h}>],
     [llvm::Module *dummy])],
   [LIBS="-lLLVM-${llvm_version} $LIBS"] [HAVE_LLVM=1],
   [AC_MSG_ERROR(["The llvm-${llvm_version} shared library is not installed"])])

@@ -13,42 +13,93 @@
 #include <vector>
 #include <tr1/unordered_map>
 
-#include <llvm/CallingConv.h>
-#include <llvm/DataLayout.h>
-#include <llvm/InlineAsm.h>
-#include <llvm/IntrinsicInst.h>
-#include <llvm/Instructions.h>
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
-#include <llvm/Operator.h>
-#include <llvm/Type.h>
-#include <llvm/DerivedTypes.h>
 #include <llvm/ADT/OwningPtr.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Bitcode/ReaderWriter.h>
-#include <llvm/Support/IRReader.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/system_error.h>
 
 #include <llvm/Config/llvm-config.h>
 
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR > 3
+  #error "LLVM 4.0 and greater are not supported"
+#endif
+
 // LLVM 3.0 does not define LLVM_VERSION_MAJOR
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 3 && LLVM_VERSION_MINOR >= 2
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 2
   // LLVM 3.2 moved the debug info header and renamed TargetData
-  // to DataLayout
+  // to DataLayout.  LLVM 3.3 moved the DataLayout header.
   #include <llvm/DebugInfo.h>
-  #include <llvm/DataLayout.h>
+  #if LLVM_VERSION_MINOR >= 3
+    #include <llvm/IR/DataLayout.h>
+  #else
+    #include <llvm/DataLayout.h>
+  #endif
 #else
+  // LLVM 3.0/3.1
   #include <llvm/Analysis/DebugInfo.h>
   #include <llvm/Target/TargetData.h>
   #define DataLayout TargetData
+#endif
+
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+  // LLVM 3.3
+  #include <llvm/IR/CallingConv.h>
+  #include <llvm/IR/DerivedTypes.h>
+  #include <llvm/IR/InlineAsm.h>
+  #include <llvm/IR/IntrinsicInst.h>
+  #include <llvm/IR/Instructions.h>
+  #include <llvm/IR/LLVMContext.h>
+  #include <llvm/IR/Module.h>
+  #include <llvm/IR/Operator.h>
+  #include <llvm/IR/Type.h>
+  #include <llvm/IRReader/IRReader.h>
+#else
+  // LLVM 3.0-3.2
+  #include <llvm/CallingConv.h>
+  #include <llvm/DerivedTypes.h>
+  #include <llvm/InlineAsm.h>
+  #include <llvm/IntrinsicInst.h>
+  #include <llvm/Instructions.h>
+  #include <llvm/LLVMContext.h>
+  #include <llvm/Module.h>
+  #include <llvm/Operator.h>
+  #include <llvm/Type.h>
+  #include <llvm/Support/IRReader.h>
 #endif
 
 using namespace llvm;
 using std::ostringstream;
 using std::string;
 using std::tr1::unordered_map;
+
+// Utility functions to hide incompatibilities between LLVM API
+// versions
+static int64_t getHiDISubrange(llvm::DISubrange &subrange) {
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+  return subrange.getLo() + subrange.getCount();
+#else
+  return subrange.getHi();
+#endif
+}
+
+static char* getCStrdup(StringRef str) {
+  return strndup(str.data(), str.size());
+}
+
+static char* getCStrdup(std::string &str) {
+  return strdup(str.c_str());
+}
+
+static char* getCStrdup(const char *str) {
+  return strdup(str);
+}
+
+static char* getCStrdup(llvm::raw_string_ostream &os) {
+  return getCStrdup(os.str());
+}
 
 struct PrivateData {
   LLVMContext ctxt;
@@ -675,8 +726,7 @@ static void makeMetaLocation(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   DIDerivedType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
-  meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.name = getCStrdup(dt.getName());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -688,8 +738,8 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.isByRefStruct = dt.isBlockByrefStruct();
   meta->u.metaTypeInfo.isVirtual = dt.isVirtual();
   meta->u.metaTypeInfo.isArtificial = dt.isArtificial();
-  meta->u.metaTypeInfo.directory = strdup(dt.getDirectory().str().c_str());
-  meta->u.metaTypeInfo.filename = strdup(dt.getFilename().str().c_str());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
@@ -698,8 +748,7 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   DICompositeType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
-  meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.name = getCStrdup(dt.getName());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -711,8 +760,8 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.isByRefStruct = dt.isBlockByrefStruct();
   meta->u.metaTypeInfo.isVirtual = dt.isVirtual();
   meta->u.metaTypeInfo.isArtificial = dt.isArtificial();
-  meta->u.metaTypeInfo.directory = strdup(dt.getDirectory().str().c_str());
-  meta->u.metaTypeInfo.filename = strdup(dt.getFilename().str().c_str());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
@@ -726,8 +775,7 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaBasicType(CModule *m, const MDNode *md, CMeta *meta) {
   DIBasicType dt(md);
   meta->u.metaTypeInfo.context = translateMetadata(m, dt.getContext());
-  meta->u.metaTypeInfo.name = strdup(dt.getName().str().c_str());
-  meta->u.metaTypeInfo.file = translateMetadata(m, dt.getFile());
+  meta->u.metaTypeInfo.name = getCStrdup(dt.getName());
   meta->u.metaTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTypeInfo.sizeInBits = dt.getSizeInBits();
   meta->u.metaTypeInfo.alignInBits = dt.getAlignInBits();
@@ -739,8 +787,8 @@ static void makeMetaBasicType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.isByRefStruct = dt.isBlockByrefStruct();
   meta->u.metaTypeInfo.isVirtual = dt.isVirtual();
   meta->u.metaTypeInfo.isArtificial = dt.isArtificial();
-  meta->u.metaTypeInfo.directory = strdup(dt.getDirectory().str().c_str());
-  meta->u.metaTypeInfo.filename = strdup(dt.getFilename().str().c_str());
+  meta->u.metaTypeInfo.directory = getCStrdup(dt.getDirectory());
+  meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.encoding = dt.getEncoding();
 }
@@ -748,7 +796,7 @@ static void makeMetaBasicType(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaVariable(CModule *m, const MDNode *md, CMeta *meta) {
   DIVariable dv(md);
   meta->u.metaVariableInfo.context = translateMetadata(m, dv.getContext());
-  meta->u.metaVariableInfo.name = strdup(dv.getName().str().c_str());
+  meta->u.metaVariableInfo.name = getCStrdup(dv.getName());
   meta->u.metaVariableInfo.lineNumber = dv.getLineNumber();
   meta->u.metaVariableInfo.argNumber = dv.getArgNumber();
   meta->u.metaVariableInfo.type = translateMetadata(m, dv.getType());
@@ -770,12 +818,12 @@ static void makeMetaVariable(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
   DISubprogram ds(md);
   meta->u.metaSubprogramInfo.context = translateMetadata(m, ds.getContext());
-  meta->u.metaSubprogramInfo.name = strdup(ds.getName().str().c_str());
-  meta->u.metaSubprogramInfo.displayName = strdup(ds.getDisplayName().str().c_str());
-  meta->u.metaSubprogramInfo.linkageName = strdup(ds.getLinkageName().str().c_str());
+  meta->u.metaSubprogramInfo.name = getCStrdup(ds.getName());
+  meta->u.metaSubprogramInfo.displayName = getCStrdup(ds.getDisplayName());
+  meta->u.metaSubprogramInfo.linkageName = getCStrdup(ds.getLinkageName());
   meta->u.metaSubprogramInfo.lineNumber = ds.getLineNumber();
   meta->u.metaSubprogramInfo.type = translateMetadata(m, ds.getType());
-  meta->u.metaSubprogramInfo.returnTypeName = strdup(ds.getReturnTypeName().str().c_str());
+  meta->u.metaSubprogramInfo.returnTypeName = getCStrdup(ds.getReturnTypeName());
   meta->u.metaSubprogramInfo.isLocalToUnit = ds.isLocalToUnit();
   meta->u.metaSubprogramInfo.isDefinition = ds.isDefinition();
   meta->u.metaSubprogramInfo.virtuality = ds.getVirtuality();
@@ -787,8 +835,8 @@ static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaSubprogramInfo.isExplicit = ds.isExplicit();
   meta->u.metaSubprogramInfo.isPrototyped = ds.isPrototyped();
   meta->u.metaSubprogramInfo.isOptimized = ds.isOptimized();
-  meta->u.metaSubprogramInfo.filename = strdup(ds.getFilename().str().c_str());
-  meta->u.metaSubprogramInfo.directory = strdup(ds.getDirectory().str().c_str());
+  meta->u.metaSubprogramInfo.filename = getCStrdup(ds.getFilename());
+  meta->u.metaSubprogramInfo.directory = getCStrdup(ds.getDirectory());
   const Value *func = ds.getFunction();
   if(func)
     meta->u.metaSubprogramInfo.function = translateValue(m, func);
@@ -797,9 +845,9 @@ static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaGlobalVariable(CModule *m, const MDNode *md, CMeta *meta) {
   DIGlobalVariable dg(md);
   meta->u.metaGlobalInfo.context = translateMetadata(m, dg.getContext());
-  meta->u.metaGlobalInfo.name = strdup(dg.getName().str().c_str());
-  meta->u.metaGlobalInfo.displayName = strdup(dg.getDisplayName().str().c_str());
-  meta->u.metaGlobalInfo.linkageName = strdup(dg.getLinkageName().str().c_str());
+  meta->u.metaGlobalInfo.name = getCStrdup(dg.getName());
+  meta->u.metaGlobalInfo.displayName = getCStrdup(dg.getDisplayName());
+  meta->u.metaGlobalInfo.linkageName = getCStrdup(dg.getLinkageName());
   meta->u.metaGlobalInfo.lineNumber = dg.getLineNumber();
   meta->u.metaGlobalInfo.globalType = translateMetadata(m, dg.getType());
   meta->u.metaGlobalInfo.isLocalToUnit = dg.isLocalToUnit();
@@ -811,19 +859,22 @@ static void makeMetaGlobalVariable(CModule *m, const MDNode *md, CMeta *meta) {
 
 static void makeMetaFile(CModule *m, const MDNode *md, CMeta *meta) {
   DIFile df(md);
-  meta->u.metaFileInfo.filename = strdup(df.getFilename().str().c_str());
-  meta->u.metaFileInfo.directory = strdup(df.getDirectory().str().c_str());
+  meta->u.metaFileInfo.filename = getCStrdup(df.getFilename());
+  meta->u.metaFileInfo.directory = getCStrdup(df.getDirectory());
 }
 
 static void makeMetaCompileUnit(CModule *m, const MDNode *md, CMeta *meta) {
   DICompileUnit dc(md);
   meta->u.metaCompileUnitInfo.language = dc.getLanguage();
-  meta->u.metaCompileUnitInfo.filename = strdup(dc.getFilename().str().c_str());
-  meta->u.metaCompileUnitInfo.directory = strdup(dc.getDirectory().str().c_str());
-  meta->u.metaCompileUnitInfo.producer = strdup(dc.getProducer().str().c_str());
+  meta->u.metaCompileUnitInfo.filename = getCStrdup(dc.getFilename());
+  meta->u.metaCompileUnitInfo.directory = getCStrdup(dc.getDirectory());
+  meta->u.metaCompileUnitInfo.producer = getCStrdup(dc.getProducer());
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+#else
   meta->u.metaCompileUnitInfo.isMain = dc.isMain();
+#endif
   meta->u.metaCompileUnitInfo.isOptimized = dc.isOptimized();
-  meta->u.metaCompileUnitInfo.flags = strdup(dc.getFlags().str().c_str());
+  meta->u.metaCompileUnitInfo.flags = getCStrdup(dc.getFlags());
   meta->u.metaCompileUnitInfo.runtimeVersion = dc.getRunTimeVersion();
   meta->u.metaCompileUnitInfo.enumTypes = translateMetadata(m, dc.getEnumTypes());
   meta->u.metaCompileUnitInfo.retainedTypes = translateMetadata(m, dc.getRetainedTypes());
@@ -834,9 +885,9 @@ static void makeMetaCompileUnit(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaNamespace(CModule *m, const MDNode *md, CMeta *meta) {
   DINameSpace dn(md);
   meta->u.metaNamespaceInfo.context = translateMetadata(m, dn.getContext());
-  meta->u.metaNamespaceInfo.name = strdup(dn.getName().str().c_str());
-  meta->u.metaNamespaceInfo.directory = strdup(dn.getDirectory().str().c_str());
-  meta->u.metaNamespaceInfo.filename = strdup(dn.getFilename().str().c_str());
+  meta->u.metaNamespaceInfo.name = getCStrdup(dn.getName());
+  meta->u.metaNamespaceInfo.directory = getCStrdup(dn.getDirectory());
+  meta->u.metaNamespaceInfo.filename = getCStrdup(dn.getFilename());
   meta->u.metaNamespaceInfo.lineNumber = dn.getLineNumber();
 }
 
@@ -845,19 +896,19 @@ static void makeMetaLexicalBlock(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaLexicalBlockInfo.context = translateMetadata(m, dl.getContext());
   meta->u.metaLexicalBlockInfo.lineNumber = dl.getLineNumber();
   meta->u.metaLexicalBlockInfo.columnNumber = dl.getColumnNumber();
-  meta->u.metaLexicalBlockInfo.directory = strdup(dl.getDirectory().str().c_str());
-  meta->u.metaLexicalBlockInfo.filename = strdup(dl.getFilename().str().c_str());
+  meta->u.metaLexicalBlockInfo.directory = getCStrdup(dl.getDirectory());
+  meta->u.metaLexicalBlockInfo.filename = getCStrdup(dl.getFilename());
 }
 
 static void makeMetaSubrange(CModule *, const MDNode *md, CMeta *meta) {
   DISubrange ds(md);
   meta->u.metaSubrangeInfo.lo = ds.getLo();
-  meta->u.metaSubrangeInfo.hi = ds.getHi();
+  meta->u.metaSubrangeInfo.hi = getHiDISubrange(ds);
 }
 
 static void makeMetaEnumerator(CModule *, const MDNode *md, CMeta *meta) {
   DIEnumerator de(md);
-  meta->u.metaEnumeratorInfo.enumName = strdup(de.getName().str().c_str());
+  meta->u.metaEnumeratorInfo.enumName = getCStrdup(de.getName());
   meta->u.metaEnumeratorInfo.enumValue = de.getEnumValue();
 }
 
@@ -876,10 +927,10 @@ static void makeMetaArray(CModule *m, const MDNode *md, CMeta *meta) {
 static void makeMetaTemplateTypeParameter(CModule *m, const MDNode *md, CMeta *meta) {
   DITemplateTypeParameter dt(md);
   meta->u.metaTemplateTypeInfo.context = translateMetadata(m, dt.getContext());
-  meta->u.metaTemplateTypeInfo.name = strdup(dt.getName().str().c_str());
+  meta->u.metaTemplateTypeInfo.name = getCStrdup(dt.getName());
   meta->u.metaTemplateTypeInfo.type = translateMetadata(m, dt.getType());
-  meta->u.metaTemplateTypeInfo.filename = strdup(dt.getFilename().str().c_str());
-  meta->u.metaTemplateTypeInfo.directory = strdup(dt.getDirectory().str().c_str());
+  meta->u.metaTemplateTypeInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTemplateTypeInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTemplateTypeInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTemplateTypeInfo.columnNumber = dt.getColumnNumber();
 }
@@ -887,11 +938,11 @@ static void makeMetaTemplateTypeParameter(CModule *m, const MDNode *md, CMeta *m
 static void makeMetaTemplateValueParameter(CModule *m, const MDNode *md, CMeta *meta) {
   DITemplateValueParameter dt(md);
   meta->u.metaTemplateValueInfo.context = translateMetadata(m, dt.getContext());
-  meta->u.metaTemplateValueInfo.name = strdup(dt.getName().str().c_str());
+  meta->u.metaTemplateValueInfo.name = getCStrdup(dt.getName());
   meta->u.metaTemplateValueInfo.type = translateMetadata(m, dt.getType());
   meta->u.metaTemplateValueInfo.value = dt.getValue();
-  meta->u.metaTemplateValueInfo.filename = strdup(dt.getFilename().str().c_str());
-  meta->u.metaTemplateValueInfo.directory = strdup(dt.getDirectory().str().c_str());
+  meta->u.metaTemplateValueInfo.filename = getCStrdup(dt.getFilename());
+  meta->u.metaTemplateValueInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTemplateValueInfo.lineNumber = dt.getLineNumber();
   meta->u.metaTemplateValueInfo.columnNumber = dt.getColumnNumber();
 }
@@ -942,7 +993,6 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
   case META_VARIABLE: makeMetaVariable(m, md, meta); break;
   case META_SUBPROGRAM: makeMetaSubprogram(m, md, meta); break;
   case META_GLOBALVARIABLE: makeMetaGlobalVariable(m, md, meta); break;
-  case META_FILE: makeMetaFile(m, md, meta); break;
   case META_COMPILEUNIT: makeMetaCompileUnit(m, md, meta); break;
   case META_NAMESPACE: makeMetaNamespace(m, md, meta); break;
   case META_LEXICALBLOCK: makeMetaLexicalBlock(m, md, meta); break;
@@ -960,7 +1010,7 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
     os << "Unhandled metadata node type: ";
     md->print(os);
 
-    meta->u.metaUnknownInfo.repr = strdup(os.str().c_str());
+    meta->u.metaUnknownInfo.repr = getCStrdup(os);
     break;
   }
   }
@@ -1040,7 +1090,7 @@ static CType* translateType(CModule *m, Type *t) {
   {
     const StructType *st = dyn_cast<const StructType>(t);
     if(st->hasName())
-      ret->name = strdup(st->getName().str().c_str());
+      ret->name = getCStrdup(st->getName());
     else
       ret->name = NULL;
 
@@ -1092,7 +1142,7 @@ static CValue* translateGlobalAlias(CModule *m, const GlobalAlias *ga) {
 
   v->valueTag = VAL_ALIAS;
   v->valueType = translateType(m, ga->getType());
-  v->name = strdup(ga->getName().str().c_str());
+  v->name = getCStrdup(ga->getName());
 
   CGlobalInfo *gi = (CGlobalInfo*)calloc(1, sizeof(CGlobalInfo));
   v->data = (void*)gi;
@@ -1102,7 +1152,7 @@ static CValue* translateGlobalAlias(CModule *m, const GlobalAlias *ga) {
   gi->visibility = decodeVisibility(ga);
   gi->linkage = decodeLinkage(ga);
   if(ga->hasSection())
-    gi->section = strdup(ga->getSection().c_str());
+    gi->section = getCStrdup(ga->getSection());
 
   gi->aliasee = translateConstant(m, ga->getAliasee());
 
@@ -1118,7 +1168,7 @@ static CValue* translateArgument(CModule *m, const Argument *a) {
 
   v->valueTag = VAL_ARGUMENT;
   v->valueType = translateType(m, a->getType());
-  v->name = strdup(a->getName().str().c_str());
+  v->name = getCStrdup(a->getName());
 
   // Metadata will be attached as instructions are processed (calls to
   // the Debug intrinsics)
@@ -1203,7 +1253,7 @@ static void buildInvokeInst(CModule *m, CValue *v, const InvokeInst *ii) {
   v->valueTag = VAL_INVOKEINST;
   v->valueType = translateType(m, ii->getType());
   if(ii->hasName())
-    v->name = strdup(ii->getName().str().c_str());
+    v->name = getCStrdup(ii->getName());
 
   CCallInfo *ci = (CCallInfo*)calloc(1, sizeof(CCallInfo));
   v->data = (void*)ci;
@@ -1305,7 +1355,7 @@ static bool buildCallInst(CModule *m, CValue *v, const CallInst *ii) {
   v->valueTag = VAL_CALLINST;
   v->valueType = translateType(m, ii->getType());
   if(ii->hasName())
-    v->name = strdup(ii->getName().str().c_str());
+    v->name = getCStrdup(ii->getName());
 
   CCallInfo *ci = (CCallInfo*)calloc(1, sizeof(CCallInfo));
   v->data = (void*)ci;
@@ -1328,7 +1378,7 @@ static void buildAllocaInst(CModule *m, CValue *v, const AllocaInst *ai) {
   v->valueTag = VAL_ALLOCAINST;
   v->valueType = translateType(m, ai->getType());
   if(ai->hasName())
-    v->name = strdup(ai->getName().str().c_str());
+    v->name = getCStrdup(ai->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1346,7 +1396,7 @@ static void buildLoadInst(CModule *m, CValue *v, const LoadInst *li) {
   v->valueTag = VAL_LOADINST;
   v->valueType = translateType(m, li->getType());
   if(li->hasName())
-    v->name = strdup(li->getName().str().c_str());
+    v->name = getCStrdup(li->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1366,7 +1416,7 @@ static void buildStoreInst(CModule *m, CValue *v, const StoreInst *si) {
   v->valueTag = VAL_STOREINST;
   v->valueType = translateType(m, si->getType());
   if(si->hasName())
-    v->name = strdup(si->getName().str().c_str());
+    v->name = getCStrdup(si->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1387,7 +1437,7 @@ static void buildGEPInst(CModule *m, CValue *v, const GetElementPtrInst *gi) {
   v->valueTag = VAL_GETELEMENTPTRINST;
   v->valueType = translateType(m, gi->getType());
   if(gi->hasName())
-    v->name = strdup(gi->getName().str().c_str());
+    v->name = getCStrdup(gi->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1408,7 +1458,7 @@ static void buildCastInst(CModule *m, CValue *v, ValueTag t, const Instruction *
   v->valueTag = t;
   v->valueType = translateType(m, ci->getType());
   if(ci->hasName())
-    v->name = strdup(ci->getName().str().c_str());
+    v->name = getCStrdup(ci->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1426,7 +1476,7 @@ static void buildCmpInst(CModule *m, CValue *v, ValueTag t, const Instruction *i
   v->valueTag = t;
   v->valueType = translateType(m, ci->getType());
   if(ci->hasName())
-    v->name = strdup(ci->getName().str().c_str());
+    v->name = getCStrdup(ci->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1444,7 +1494,7 @@ static void buildPHINode(CModule *m, CValue *v, const PHINode* n) {
   v->valueTag = VAL_PHINODE;
   v->valueType = translateType(m, n->getType());
   if(n->hasName())
-    v->name = strdup(n->getName().str().c_str());
+    v->name = getCStrdup(n->getName());
 
   CPHIInfo *pi = (CPHIInfo*)calloc(1, sizeof(CPHIInfo));
   v->data = (void*)pi;
@@ -1509,7 +1559,7 @@ static void buildVAArgInst(CModule *m, CValue *v, const VAArgInst *vi) {
   v->valueTag = VAL_VAARGINST;
   v->valueType = translateType(m, vi->getType());
   if(vi->hasName())
-    v->name = strdup(vi->getName().str().c_str());
+    v->name = getCStrdup(vi->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1526,7 +1576,7 @@ static void buildLandingPadInst(CModule *m, CValue *v, const LandingPadInst *li)
   v->valueType = translateType(m, li->getType());
 
   if(li->hasName())
-    v->name = strdup(li->getName().str().c_str());
+    v->name = getCStrdup(li->getName());
 
   CLandingPadInfo *ii = (CLandingPadInfo*)calloc(1, sizeof(CLandingPadInfo));
   v->data = (void*)ii;
@@ -1547,7 +1597,7 @@ static void buildExtractValueInst(CModule *m, CValue *v, const ExtractValueInst 
   v->valueTag = VAL_EXTRACTVALUEINST;
   v->valueType = translateType(m, ei->getType());
   if(ei->hasName())
-    v->name = strdup(ei->getName().str().c_str());
+    v->name = getCStrdup(ei->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1569,7 +1619,7 @@ static void buildInsertValueInst(CModule *m, CValue *v, const InsertValueInst *e
   v->valueTag = VAL_INSERTVALUEINST;
   v->valueType = translateType(m, ei->getType());
   if(ei->hasName())
-    v->name = strdup(ei->getName().str().c_str());
+    v->name = getCStrdup(ei->getName());
 
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
   v->data = (void*)ii;
@@ -1855,7 +1905,7 @@ static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb) {
   v->valueTag = VAL_BASICBLOCK;
   v->valueType = translateType(m, bb->getType());
   if(bb->hasName())
-    v->name = strdup(bb->getName().str().c_str());
+    v->name = getCStrdup(bb->getName());
 
   // No metadata for these
 
@@ -1894,13 +1944,13 @@ static CValue* translateFunction(CModule *m, const Function *f) {
 
   v->valueTag = VAL_FUNCTION;
   v->valueType = translateType(m, f->getFunctionType());
-  v->name = strdup(f->getName().str().c_str());
+  v->name = getCStrdup(f->getName());
 
   CFunctionInfo *fi = (CFunctionInfo*)calloc(1, sizeof(CFunctionInfo));
   v->data = (void*)fi;
 
   if(f->hasSection())
-    fi->section = strdup(f->getSection().c_str());
+    fi->section = getCStrdup(f->getSection());
 
   fi->visibility = decodeVisibility(f);
   fi->linkage = decodeLinkage(f);
@@ -1908,7 +1958,7 @@ static CValue* translateFunction(CModule *m, const Function *f) {
   fi->callingConvention = decodeCallingConvention(f->getCallingConv());
   fi->isVarArg = f->isVarArg();
   if(f->hasGC())
-    fi->gcName = strdup(f->getGC());
+    fi->gcName = getCStrdup(f->getGC());
 
   fi->argListLen = f->arg_size();
   fi->arguments = (CValue**)calloc(fi->argListLen, sizeof(CValue*));
@@ -1943,13 +1993,13 @@ static CValue* translateGlobalVariable(CModule *m, const GlobalVariable *gv) {
   v->valueTag = VAL_GLOBALVARIABLE;
   v->valueType = translateType(m, gv->getType());
   if(gv->hasName())
-    v->name = strdup(gv->getName().str().c_str());
+    v->name = getCStrdup(gv->getName());
 
   CGlobalInfo *gi = (CGlobalInfo*)calloc(1, sizeof(CGlobalInfo));
   v->data = (void*)gi;
 
   if(gv->hasSection())
-    gi->section = strdup(gv->getSection().c_str());
+    gi->section = getCStrdup(gv->getSection());
 
   gi->visibility = decodeVisibility(gv);
   gi->linkage = decodeLinkage(gv);
@@ -1971,13 +2021,13 @@ static CValue* translateInlineAsm(CModule *m, const InlineAsm* a) {
   v->valueTag = VAL_INLINEASM;
   v->valueType = translateType(m, a->getType());
   if(a->hasName())
-    v->name = strdup(a->getName().str().c_str());
+    v->name = getCStrdup(a->getName());
 
   CInlineAsmInfo *ii = (CInlineAsmInfo*)calloc(1, sizeof(CInlineAsmInfo));
   v->data = (void*)ii;
 
-  ii->asmString = strdup(a->getAsmString().c_str());
-  ii->constraintString = strdup(a->getConstraintString().c_str());
+  ii->asmString = getCStrdup(a->getAsmString());
+  ii->constraintString = getCStrdup(a->getConstraintString());
 
   return v;
 }
@@ -2033,7 +2083,7 @@ static CValue* translateConstantInt(CModule *m, const ConstantInt* i) {
   if(apint.getMinSignedBits() <= 64)
     d->val = i->getSExtValue();
   else
-    d->hugeVal = strdup(apint.toString(10, true).c_str());
+    d->hugeVal = getCStrdup(apint.toString(10, true));
   return v;
 }
 
@@ -2066,7 +2116,7 @@ static CValue* translateBlockAddress(CModule *m, const BlockAddress *ba) {
   v->valueTag = VAL_BLOCKADDRESS;
   v->valueType = translateType(m, ba->getType());
   if(ba->hasName())
-    v->name = strdup(ba->getName().str().c_str());
+    v->name = getCStrdup(ba->getName());
 
   CBlockAddrInfo *i = (CBlockAddrInfo*)calloc(1, sizeof(CBlockAddrInfo));
   v->data = (void*)i;
@@ -2085,7 +2135,7 @@ static CValue* translateConstantAggregate(CModule *m, ValueTag t, const Constant
   v->valueTag = t;
   v->valueType = translateType(m, ca->getType());
   if(ca->hasName())
-    v->name = strdup(ca->getName().str().c_str());
+    v->name = getCStrdup(ca->getName());
 
   CConstAggregate *a = (CConstAggregate*)calloc(1, sizeof(CConstAggregate));
   v->data = (void*)a;
@@ -2112,7 +2162,7 @@ static CValue* translateConstantData(CModule *m, const ConstantDataSequential *c
   v->valueTag = VAL_CONSTANTARRAY;
   v->valueType = translateType(m, cd->getType());
   if(cd->hasName())
-    v->name = strdup(cd->getName().str().c_str());
+    v->name = getCStrdup(cd->getName());
 
   CConstAggregate *a = (CConstAggregate*)calloc(1, sizeof(CConstAggregate));
   v->data = (void*)a;
@@ -2136,7 +2186,7 @@ static CValue* translateConstantExpr(CModule *m, const ConstantExpr *ce) {
   v->valueTag = VAL_CONSTANTEXPR;
   v->valueType = translateType(m, ce->getType());
   if(ce->hasName())
-    v->name = strdup(ce->getName().str().c_str());
+    v->name = getCStrdup(ce->getName());
 
   CConstExprInfo *ci = (CConstExprInfo*)calloc(1, sizeof(CConstExprInfo));
   CInstructionInfo *ii = (CInstructionInfo*)calloc(1, sizeof(CInstructionInfo));
@@ -2428,10 +2478,10 @@ static CModule* marshal(CModule * module) {
   PrivateData *pd = (PrivateData*)module->privateData;
   Module *m = pd->original;
 
-  module->moduleIdentifier = strdup(m->getModuleIdentifier().c_str());
-  module->moduleDataLayout = strdup(m->getDataLayout().c_str());
-  module->targetTriple = strdup(m->getTargetTriple().c_str());
-  module->moduleInlineAsm = strdup(m->getModuleInlineAsm().c_str());
+  module->moduleIdentifier = getCStrdup(m->getModuleIdentifier());
+  module->moduleDataLayout = getCStrdup(m->getDataLayout());
+  module->targetTriple = getCStrdup(m->getTargetTriple());
+  module->moduleInlineAsm = getCStrdup(m->getModuleInlineAsm());
 
 
   try
@@ -2503,15 +2553,15 @@ static CModule* marshal(CModule * module) {
   }
   catch(const string &msg) {
     module->hasError = 1;
-    module->errMsg = strdup(msg.c_str());
+    module->errMsg = getCStrdup(msg);
   }
   catch(const char *msg) {
     module->hasError = 1;
-    module->errMsg = strdup(msg);
+    module->errMsg = getCStrdup(msg);
   }
   catch(...) {
     module->hasError = 1;
-    module->errMsg = strdup("Unknown error");
+    module->errMsg = getCStrdup("Unknown error");
   }
 
   return module;
@@ -2583,7 +2633,7 @@ extern "C" {
 
     if(m == NULL) {
       module->hasError = 1;
-      module->errMsg = strdup(pd->diags.getMessage().c_str());
+      module->errMsg = getCStrdup(pd->diags.getMessage());
       return module;
     }
 
@@ -2603,7 +2653,7 @@ extern "C" {
 
     if(pd->buffer.get() == NULL){
       module->hasError = 1;
-      module->errMsg = strdup("Could not create memory buffer");
+      module->errMsg = getCStrdup("Could not create memory buffer");
       return module;
     }
 
@@ -2611,7 +2661,7 @@ extern "C" {
 
     if(m == NULL) {
       module->hasError = 1;
-      module->errMsg = strdup(pd->diags.getMessage().c_str());
+      module->errMsg = getCStrdup(pd->diags.getMessage());
       return module;
     }
 

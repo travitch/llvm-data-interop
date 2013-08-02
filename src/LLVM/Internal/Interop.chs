@@ -350,8 +350,8 @@ cMetaTypeName :: InternString m => MetaPtr -> m Text
 cMetaTypeName = shareString {#get CMeta->u.metaTypeInfo.name#}
 -- cMetaTypeCompileUnit :: MetaPtr -> IO (Maybe MetaPtr)
 -- cMetaTypeCompileUnit = optionalField {#get CMeta->u.metaTypeInfo.compileUnit#}
-cMetaTypeFile :: MetaPtr -> IO (Maybe MetaPtr)
-cMetaTypeFile = optionalField {#get CMeta->u.metaTypeInfo.file#}
+-- cMetaTypeFile :: MetaPtr -> IO (Maybe MetaPtr)
+-- cMetaTypeFile = optionalField {#get CMeta->u.metaTypeInfo.file#}
 cMetaTypeLine :: MetaPtr -> IO Int32
 cMetaTypeLine p = fromIntegral <$> {#get CMeta->u.metaTypeInfo.lineNumber#} p
 cMetaTypeSize :: MetaPtr -> IO Int64
@@ -374,6 +374,10 @@ cMetaTypeIsVirtual :: MetaPtr -> IO Bool
 cMetaTypeIsVirtual p = toBool <$> {#get CMeta->u.metaTypeInfo.isVirtual#} p
 cMetaTypeIsArtificial :: MetaPtr -> IO Bool
 cMetaTypeIsArtificial p = toBool <$> {#get CMeta->u.metaTypeInfo.isArtificial#} p
+cMetaTypeDirectory :: InternString m => MetaPtr -> m Text
+cMetaTypeDirectory = shareString {#get CMeta->u.metaTypeInfo.directory#}
+cMetaTypeFilename :: InternString m => MetaPtr -> m Text
+cMetaTypeFilename = shareString {#get CMeta->u.metaTypeInfo.filename#}
 cMetaTypeEncoding :: MetaPtr -> IO DW_ATE
 cMetaTypeEncoding p = dw_ate <$> {#get CMeta->u.metaTypeInfo.encoding#} p
 cMetaTypeDerivedFrom :: MetaPtr -> IO (Maybe MetaPtr)
