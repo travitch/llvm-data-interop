@@ -97,9 +97,9 @@ LDFLAGS="$llvm_ldflags $LDFLAGS $TARGET_LDFLAGS"
 
 AC_PREPROC_IFELSE(
   [AC_LANG_PROGRAM([#include <llvm/Config/llvm-config.h>],
-    [#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3],
-    [#error llvm >= 3.3],
-    [#endif])],
+    [\#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3],
+    [\#error llvm >= 3.3],
+    [\#endif])],
   [llvm_module_h="llvm/Module.h"],
   [llvm_module_h="llvm/IR/Module.h"])
 

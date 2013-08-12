@@ -2801,7 +2801,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 int
 main ()
 {
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+\#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
   ;
   return 0;
 }
