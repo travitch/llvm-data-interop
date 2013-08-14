@@ -411,8 +411,9 @@ class MonadIO m => InternString m where
 shareString :: InternString m => (a -> IO CString) -> a -> m Text
 shareString accessor ptr = do
   sp <- liftIO $ accessor ptr
-  when (sp == nullPtr) (error "Null ptr in string")
-  str <- liftIO $ BS.packCString sp
+  str <- case sp == nullPtr of
+    False -> liftIO $ BS.packCString sp
+    True -> return $ BS.pack ""
   internString (decodeUtf8 str)
 
 data CGlobalInfo
