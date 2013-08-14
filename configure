@@ -2801,10 +2801,15 @@ cat >>conftest.$ac_ext <<_ACEOF
 int
 main ()
 {
-\#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+
+      #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 3
+      #error llvm >= 3.3,
+      #endif
+
   ;
   return 0;
 }
+
 _ACEOF
 if { (ac_try="$ac_cpp conftest.$ac_ext"
 case "(($ac_try" in
