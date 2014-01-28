@@ -6,7 +6,7 @@ license-file: LICENSE
 author: Tristan Ravitch
 maintainer: travitch@cs.wisc.edu
 category: Data
-build-type: Custom
+build-type: Configure
 tested-with: GHC == 7.6.3
 cabal-version: >=1.10
 Description: This package converts the LLVM IR (either bitcode files or LLVM

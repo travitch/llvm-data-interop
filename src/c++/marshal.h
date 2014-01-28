@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <llvm-base-enums.h>
+#include "llvm-base-enums.h"
 
 typedef struct CValue_t CValue;
 typedef struct CMeta_t CMeta;
