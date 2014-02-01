@@ -11,7 +11,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <tr1/unordered_map>
+#if defined(_LIBCPP_VERSION)
+  #include <unordered_map>
+#else
+  #include <tr1/unordered_map>
+#endif
 
 #include <llvm/ADT/OwningPtr.h>
 #include <llvm/ADT/SmallVector.h>
@@ -73,7 +77,11 @@
 using namespace llvm;
 using std::ostringstream;
 using std::string;
+#if defined(_LIBCPP_VERSION)
+using std::unordered_map;
+#else
 using std::tr1::unordered_map;
+#endif
 
 // Utility functions to hide incompatibilities between LLVM API
 // versions

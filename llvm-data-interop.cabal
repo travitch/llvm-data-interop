@@ -48,3 +48,6 @@ library
   include-dirs: src
   hs-source-dirs: src
   cc-options: -fvisibility-inlines-hidden -fvisibility=hidden
+
+  if os(darwin)
+    cc-options: -std=c++11
