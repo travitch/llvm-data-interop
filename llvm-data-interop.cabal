@@ -4,7 +4,7 @@ synopsis: A low-level data interoperability binding for LLVM
 license: BSD3
 license-file: LICENSE
 author: Tristan Ravitch
-maintainer: travitch@cs.wisc.edu
+maintainer: tristan@nochair.net
 category: Data
 build-type: Configure
 tested-with: GHC == 7.6.3
@@ -29,14 +29,21 @@ library
   default-language: Haskell2010
   build-depends: base == 4.*,
                  data-default >= 0.3,
-                 mtl > 2,
-                 hashable >= 1.1.2.0,
+                 mtl > 2 && < 3,
+                 hashable >= 1.1.2.0 && < 1.3,
                  llvm-base-types >= 0.3.0,
                  loch-th >= 0.2,
-                 unification-fd >= 0.8,
-                 unordered-containers >= 0.2.1.0,
-                 hashtables, vector, transformers, text,
-                 array, bytestring, containers, dwarf, deepseq
+                 unification-fd >= 0.8 && < 0.9,
+                 unordered-containers >= 0.2.1.0 && < 0.3,
+                 hashtables,
+                 vector,
+                 transformers,
+                 text >= 0.11 && < 2,
+                 array,
+                 bytestring,
+                 containers,
+                 dwarf == 0.23,
+                 deepseq
   other-modules: LLVM.Internal.Interop
                  LLVM.Internal.TypeUnification
   exposed-modules: LLVM.Parse
