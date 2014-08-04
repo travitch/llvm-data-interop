@@ -752,7 +752,9 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
+#endif
 }
 
 static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
@@ -774,7 +776,9 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
+#endif
 
   meta->u.metaTypeInfo.typeArray = translateMetadataArray(m, dt.getTypeArray());
   meta->u.metaTypeInfo.runTimeLang = dt.getRunTimeLang();

@@ -1,3 +1,4 @@
+#include <llvm/Config/llvm-config.h>
 #include <stdint.h>
 #include "llvm-base-enums.h"
 
@@ -195,7 +196,9 @@ typedef struct {
 
   // Derived and Composite Types
   CMeta *typeDerivedFrom;
+#if LLVM_VERSION_MINOR < 4
   uint64_t originalTypeSize;
+#endif
 
   // Composite Type
   CMeta *typeArray;
