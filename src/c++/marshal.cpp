@@ -954,7 +954,11 @@ static void makeMetaTemplateValueParameter(CModule *m, const MDNode *md, CMeta *
   meta->u.metaTemplateValueInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTemplateValueInfo.name = getCStrdup(dt.getName());
   meta->u.metaTemplateValueInfo.type = translateMetadata(m, dt.getType());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaTemplateValueInfo.value = dt.getValue();
+#else
+  meta->u.metaTemplateValueInfo.value = translateValue(m, dt.getValue());
+#endif
   meta->u.metaTemplateValueInfo.filename = getCStrdup(dt.getFilename());
   meta->u.metaTemplateValueInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTemplateValueInfo.lineNumber = dt.getLineNumber();

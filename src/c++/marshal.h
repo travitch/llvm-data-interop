@@ -86,7 +86,11 @@ typedef struct {
   CMeta *context;
   char *name;
   CMeta *type;
+#if LLVM_VERSION_MINOR < 4
   uint64_t value;
+#else
+  CValue *value;
+#endif
   char *filename;
   char *directory;
   unsigned lineNumber;
