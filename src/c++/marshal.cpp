@@ -394,7 +394,9 @@ static void disposeCMeta(CMeta *meta) {
     free(meta->u.metaSubprogramInfo.name);
     free(meta->u.metaSubprogramInfo.displayName);
     free(meta->u.metaSubprogramInfo.linkageName);
+#if LLVM_VERSION_MINOR < 4
     free(meta->u.metaSubprogramInfo.returnTypeName);
+#endif
     free(meta->u.metaSubprogramInfo.filename);
     free(meta->u.metaSubprogramInfo.directory);
     break;
@@ -837,7 +839,9 @@ static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaSubprogramInfo.linkageName = getCStrdup(ds.getLinkageName());
   meta->u.metaSubprogramInfo.lineNumber = ds.getLineNumber();
   meta->u.metaSubprogramInfo.type = translateMetadata(m, ds.getType());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaSubprogramInfo.returnTypeName = getCStrdup(ds.getReturnTypeName());
+#endif
   meta->u.metaSubprogramInfo.isLocalToUnit = ds.isLocalToUnit();
   meta->u.metaSubprogramInfo.isDefinition = ds.isDefinition();
   meta->u.metaSubprogramInfo.virtuality = ds.getVirtuality();

@@ -157,7 +157,9 @@ typedef struct {
   // CMeta *compileUnit;
   unsigned lineNumber;
   CMeta *type;
+#if LLVM_VERSION_MINOR < 4
   char *returnTypeName;
+#endif
   int isLocalToUnit;
   int isDefinition;
   unsigned virtuality;
