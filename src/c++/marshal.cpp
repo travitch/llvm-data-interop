@@ -724,6 +724,11 @@ static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb);
 static CMeta* translateMetadata(CModule *m, const MDNode *md);
 static CMeta* translateMetadataArray(CModule *m, const MDNode *md);
 
+#if LLVM_VERSION_MINOR >= 4
+static CMeta* translateMetadata(CModule *m, const DIDescriptor *desc);
+template <class T> static CMeta* translateMetadata(CModule *m, const DIRef<T> &ref);
+#endif
+
 static void makeMetaSrcLocation(CModule *m, const DebugLoc &loc, CMeta *meta) {
   meta->u.metaLocationInfo.lineNumber = loc.getLine();
   meta->u.metaLocationInfo.columnNumber = loc.getCol();
@@ -1038,6 +1043,20 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
   }
   return meta;
 }
+
+#if LLVM_VERSION_MINOR >= 4
+static CMeta* translateMetadata(CModule *m, const DIDescriptor &desc) {
+  const MDNode * const md(desc);
+  return translateMetadata(m, md);
+}
+
+template <class T>
+static CMeta* translateMetadata(CModule *m, const DIRef<T> &ref) {
+  const Value * const value(ref);
+  const MDNode * const md(dyn_cast<const MDNode>(value));
+  return translateMetadata(m, md);
+}
+#endif
 
 static CMeta* translateMetadataArray(CModule *m, const MDNode *md) {
   // I expect some metadata fields to be empty (e.g., templateParams).
