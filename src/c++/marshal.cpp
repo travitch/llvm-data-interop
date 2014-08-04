@@ -354,8 +354,10 @@ static CallingConvention decodeCallingConvention(CallingConv::ID cc) {
   case CallingConv::X86_ThisCall: return CC_X86_THISCALL;
   case CallingConv::PTX_Kernel: return CC_PTX_KERNEL;
   case CallingConv::PTX_Device: return CC_PTX_DEVICE;
+#if LLVM_VERSION_MINOR < 4
   case CallingConv::MBLAZE_INTR: return CC_MBLAZE_INTR;
   case CallingConv::MBLAZE_SVOL: return CC_MBLAZE_SVOL;
+#endif
   }
 
   ostringstream os;
