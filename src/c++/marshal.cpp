@@ -354,8 +354,10 @@ static CallingConvention decodeCallingConvention(CallingConv::ID cc) {
   case CallingConv::X86_ThisCall: return CC_X86_THISCALL;
   case CallingConv::PTX_Kernel: return CC_PTX_KERNEL;
   case CallingConv::PTX_Device: return CC_PTX_DEVICE;
+#if LLVM_VERSION_MINOR < 4
   case CallingConv::MBLAZE_INTR: return CC_MBLAZE_INTR;
   case CallingConv::MBLAZE_SVOL: return CC_MBLAZE_SVOL;
+#endif
   }
 
   ostringstream os;
@@ -392,7 +394,9 @@ static void disposeCMeta(CMeta *meta) {
     free(meta->u.metaSubprogramInfo.name);
     free(meta->u.metaSubprogramInfo.displayName);
     free(meta->u.metaSubprogramInfo.linkageName);
+#if LLVM_VERSION_MINOR < 4
     free(meta->u.metaSubprogramInfo.returnTypeName);
+#endif
     free(meta->u.metaSubprogramInfo.filename);
     free(meta->u.metaSubprogramInfo.directory);
     break;
@@ -720,6 +724,11 @@ static CValue* translateBasicBlock(CModule *m, const BasicBlock *bb);
 static CMeta* translateMetadata(CModule *m, const MDNode *md);
 static CMeta* translateMetadataArray(CModule *m, const MDNode *md);
 
+#if LLVM_VERSION_MINOR >= 4
+static CMeta* translateMetadata(CModule *m, const DIDescriptor *desc);
+template <class T> static CMeta* translateMetadata(CModule *m, const DIRef<T> &ref);
+#endif
+
 static void makeMetaSrcLocation(CModule *m, const DebugLoc &loc, CMeta *meta) {
   meta->u.metaLocationInfo.lineNumber = loc.getLine();
   meta->u.metaLocationInfo.columnNumber = loc.getCol();
@@ -750,7 +759,9 @@ static void makeMetaDerivedType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
+#endif
 }
 
 static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
@@ -772,7 +783,9 @@ static void makeMetaCompositeType(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaTypeInfo.filename = getCStrdup(dt.getFilename());
 
   meta->u.metaTypeInfo.typeDerivedFrom = translateMetadata(m, dt.getTypeDerivedFrom());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaTypeInfo.originalTypeSize = dt.getOriginalTypeSize();
+#endif
 
   meta->u.metaTypeInfo.typeArray = translateMetadataArray(m, dt.getTypeArray());
   meta->u.metaTypeInfo.runTimeLang = dt.getRunTimeLang();
@@ -831,7 +844,9 @@ static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
   meta->u.metaSubprogramInfo.linkageName = getCStrdup(ds.getLinkageName());
   meta->u.metaSubprogramInfo.lineNumber = ds.getLineNumber();
   meta->u.metaSubprogramInfo.type = translateMetadata(m, ds.getType());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaSubprogramInfo.returnTypeName = getCStrdup(ds.getReturnTypeName());
+#endif
   meta->u.metaSubprogramInfo.isLocalToUnit = ds.isLocalToUnit();
   meta->u.metaSubprogramInfo.isDefinition = ds.isDefinition();
   meta->u.metaSubprogramInfo.virtuality = ds.getVirtuality();
@@ -948,7 +963,11 @@ static void makeMetaTemplateValueParameter(CModule *m, const MDNode *md, CMeta *
   meta->u.metaTemplateValueInfo.context = translateMetadata(m, dt.getContext());
   meta->u.metaTemplateValueInfo.name = getCStrdup(dt.getName());
   meta->u.metaTemplateValueInfo.type = translateMetadata(m, dt.getType());
+#if LLVM_VERSION_MINOR < 4
   meta->u.metaTemplateValueInfo.value = dt.getValue();
+#else
+  meta->u.metaTemplateValueInfo.value = translateValue(m, dt.getValue());
+#endif
   meta->u.metaTemplateValueInfo.filename = getCStrdup(dt.getFilename());
   meta->u.metaTemplateValueInfo.directory = getCStrdup(dt.getDirectory());
   meta->u.metaTemplateValueInfo.lineNumber = dt.getLineNumber();
@@ -1024,6 +1043,20 @@ static CMeta* translateMetadata(CModule *m, const MDNode *md) {
   }
   return meta;
 }
+
+#if LLVM_VERSION_MINOR >= 4
+static CMeta* translateMetadata(CModule *m, const DIDescriptor &desc) {
+  const MDNode * const md(desc);
+  return translateMetadata(m, md);
+}
+
+template <class T>
+static CMeta* translateMetadata(CModule *m, const DIRef<T> &ref) {
+  const Value * const value(ref);
+  const MDNode * const md(dyn_cast<const MDNode>(value));
+  return translateMetadata(m, md);
+}
+#endif
 
 static CMeta* translateMetadataArray(CModule *m, const MDNode *md) {
   // I expect some metadata fields to be empty (e.g., templateParams).

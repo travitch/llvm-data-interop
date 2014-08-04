@@ -1,3 +1,4 @@
+#include <llvm/Config/llvm-config.h>
 #include <stdint.h>
 #include "llvm-base-enums.h"
 
@@ -85,7 +86,11 @@ typedef struct {
   CMeta *context;
   char *name;
   CMeta *type;
+#if LLVM_VERSION_MINOR < 4
   uint64_t value;
+#else
+  CValue *value;
+#endif
   char *filename;
   char *directory;
   unsigned lineNumber;
@@ -152,7 +157,9 @@ typedef struct {
   // CMeta *compileUnit;
   unsigned lineNumber;
   CMeta *type;
+#if LLVM_VERSION_MINOR < 4
   char *returnTypeName;
+#endif
   int isLocalToUnit;
   int isDefinition;
   unsigned virtuality;
@@ -195,7 +202,9 @@ typedef struct {
 
   // Derived and Composite Types
   CMeta *typeDerivedFrom;
+#if LLVM_VERSION_MINOR < 4
   uint64_t originalTypeSize;
+#endif
 
   // Composite Type
   CMeta *typeArray;
