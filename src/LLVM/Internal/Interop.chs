@@ -2,7 +2,6 @@
 module LLVM.Internal.Interop where
 
 import Control.Applicative
-import Control.Monad ( when )
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Data.Array.Storable ( getElems )
 #if __GLASGOW_HASKELL__ >= 704
