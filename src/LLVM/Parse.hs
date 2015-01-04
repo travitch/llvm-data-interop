@@ -40,6 +40,7 @@ import Data.Map ( Map )
 import qualified Data.Map as M
 import Data.Monoid
 import Data.Text ( Text )
+import qualified Data.Traversable as T
 import Data.Typeable
 import qualified Data.Vector as V
 import Data.Word ( Word64 )
@@ -1838,19 +1839,22 @@ translateMetadata' finalState mp = do
       ctxt <- liftIO $ cMetaTemplateValueContext mp
       name <- cMetaTemplateValueName mp
       ty <- liftIO $ cMetaTemplateValueType mp
-      val <- liftIO $ cMetaTemplateValueValue mp
+      val <- liftIO $ cMetaTemplateValueIntValue mp
       line <- liftIO $ cMetaTemplateValueLine mp
       col <- liftIO $ cMetaTemplateValueColumn mp
+      mvalptr <- liftIO $ cMetaTemplateValueLLVMValue mp
 
       ctxt' <- maybeTranslateMetadataRec finalState ctxt
       ty' <- maybeTranslateMetadataRec finalState ty
+      mvalref <- T.traverse (translateConstOrRef finalState) mvalptr
 
       return MetaDWTemplateValueParameter { metaValueUniqueId = uid
                                           , metaTemplateValueParameterContext = ctxt'
                                           , metaTemplateValueParameterType = ty'
                                           , metaTemplateValueParameterLine = line
                                           , metaTemplateValueParameterCol = col
-                                          , metaTemplateValueParameterValue = val
+                                          , metaTemplateValueParameterValueInt = val
+                                          , metaTemplateValueParameterValueRef = mvalref
                                           , metaTemplateValueParameterName = name
                                           }
     MetaUnknown -> do

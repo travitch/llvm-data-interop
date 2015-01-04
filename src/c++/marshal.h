@@ -85,7 +85,8 @@ typedef struct {
   CMeta *context;
   char *name;
   CMeta *type;
-  uint64_t value;
+  uint64_t intValue;
+  CValue *llvmValue;
   char *filename;
   char *directory;
   unsigned lineNumber;
@@ -152,7 +153,6 @@ typedef struct {
   // CMeta *compileUnit;
   unsigned lineNumber;
   CMeta *type;
-  char *returnTypeName;
   int isLocalToUnit;
   int isDefinition;
   unsigned virtuality;
@@ -195,7 +195,6 @@ typedef struct {
 
   // Derived and Composite Types
   CMeta *typeDerivedFrom;
-  uint64_t originalTypeSize;
 
   // Composite Type
   CMeta *typeArray;

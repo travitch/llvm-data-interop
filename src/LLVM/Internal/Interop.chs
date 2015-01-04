@@ -233,8 +233,10 @@ cMetaTemplateValueName :: InternString m => MetaPtr -> m Text
 cMetaTemplateValueName = shareString {#get CMeta->u.metaTemplateValueInfo.name#}
 cMetaTemplateValueType :: MetaPtr -> IO (Maybe MetaPtr)
 cMetaTemplateValueType = optionalField {#get CMeta->u.metaTemplateValueInfo.type#}
-cMetaTemplateValueValue :: MetaPtr -> IO Int64
-cMetaTemplateValueValue p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.value#} p
+cMetaTemplateValueIntValue :: MetaPtr -> IO Int64
+cMetaTemplateValueIntValue p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.intValue#} p
+cMetaTemplateValueLLVMValue :: MetaPtr -> IO (Maybe ValuePtr)
+cMetaTemplateValueLLVMValue = optionalField {#get CMeta->u.metaTemplateValueInfo.llvmValue#}
 cMetaTemplateValueLine :: MetaPtr -> IO Int32
 cMetaTemplateValueLine p = fromIntegral <$> {#get CMeta->u.metaTemplateValueInfo.lineNumber#} p
 cMetaTemplateValueColumn :: MetaPtr -> IO Int32
