@@ -17,13 +17,15 @@
   #include <tr1/unordered_map>
 #endif
 
+#if defined(LLVM_VERSION_MINOR) && LLVM_VERSION_MINOR < 5
 #include <llvm/ADT/OwningPtr.h>
+#include <llvm/Support/system_error.h>
+#endif
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
-#include <llvm/Support/system_error.h>
 
 #include <llvm/Config/llvm-config.h>
 
@@ -35,7 +37,11 @@
 #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 2
   // LLVM 3.2 moved the debug info header and renamed TargetData
   // to DataLayout.  LLVM 3.3 moved the DataLayout header.
-  #include <llvm/DebugInfo.h>
+  #if defined(LLVM_VERSION_MINOR) && LLVM_VERSION_MINOR < 5
+    #include <llvm/DebugInfo.h>
+  #else
+    #include <llvm/IR/DebugInfo.h>
+  #endif
   #if LLVM_VERSION_MINOR >= 3
     #include <llvm/IR/DataLayout.h>
   #else
@@ -112,7 +118,11 @@ static char* getCStrdup(llvm::raw_string_ostream &os) {
 struct PrivateData {
   LLVMContext ctxt;
   SMDiagnostic diags;
+#if defined(LLVM_VERSION_MINOR) && LLVM_VERSION_MINOR < 5
   OwningPtr<MemoryBuffer> buffer;
+#else
+  std::unique_ptr<MemoryBuffer> buffer;
+#endif
   // Foreign callers do not need to access below this point.
   Module* original;
   int includeLocs;
@@ -264,13 +274,15 @@ static LinkageType decodeLinkage(const GlobalValue *gv) {
   case GlobalValue::AppendingLinkage: return LTAppending;
   case GlobalValue::InternalLinkage: return LTInternal;
   case GlobalValue::PrivateLinkage: return LTPrivate;
+#if LLVM_VERSION_MINOR < 5
   case GlobalValue::LinkerPrivateLinkage: return LTLinkerPrivate;
   case GlobalValue::LinkerPrivateWeakLinkage: return LTLinkerPrivateWeak;
+  case GlobalValue::DLLImportLinkage: return LTDLLImport;
+  case GlobalValue::DLLExportLinkage: return LTDLLExport;
+#endif
 #if LLVM_VERSION_MINOR < 2
   case GlobalValue::LinkerPrivateWeakDefAutoLinkage: return LTLinkerPrivateWeakDefAuto;
 #endif
-  case GlobalValue::DLLImportLinkage: return LTDLLImport;
-  case GlobalValue::DLLExportLinkage: return LTDLLExport;
   case GlobalValue::ExternalWeakLinkage: return LTExternalWeak;
   case GlobalValue::CommonLinkage: return LTCommon;
   }
@@ -824,7 +836,11 @@ static void makeMetaVariable(CModule *m, const MDNode *md, CMeta *meta) {
     }
   }
 
+#if LLVM_VERSION_MINOR < 5
   meta->u.metaVariableInfo.isBlockByRefVar = dv.isBlockByrefVariable();
+#else
+  meta->u.metaVariableInfo.isBlockByRefVar = false;
+#endif
 }
 
 static void makeMetaSubprogram(CModule *m, const MDNode *md, CMeta *meta) {
@@ -1565,7 +1581,11 @@ static void buildAtomicCmpXchgInst(CModule *m, CValue *v, const AtomicCmpXchgIns
   CAtomicInfo *ai = (CAtomicInfo*)calloc(1, sizeof(CAtomicInfo));
   v->data = (void*)ai;
 
+#if LLVM_VERSION_MINOR < 5
   ai->ordering = decodeOrdering(I->getOrdering());
+#else
+  ai->ordering = decodeOrdering(I->getSuccessOrdering());
+#endif
   ai->scope = decodeSynchScope(I->getSynchScope());
   ai->isVolatile = I->isVolatile();
   ai->addrSpace = I->getPointerAddressSpace();
@@ -2510,7 +2530,11 @@ static CModule* marshal(CModule * module) {
   Module *m = pd->original;
 
   module->moduleIdentifier = getCStrdup(m->getModuleIdentifier());
+#if LLVM_VERSION_MINOR < 5
   module->moduleDataLayout = getCStrdup(m->getDataLayout());
+#else
+  module->moduleDataLayout = getCStrdup(m->getDataLayoutStr());
+#endif
   module->targetTriple = getCStrdup(m->getTargetTriple());
   module->moduleInlineAsm = getCStrdup(m->getModuleInlineAsm());
 

@@ -1,4 +1,4 @@
-AC_INIT([Haskell LLVM data interoperability], [0.3.0], [tristan@nochair.net], [llvm-data-interop])
+AC_INIT([Haskell LLVM data interoperability], [0.4.0], [tristan@nochair.net], [llvm-data-interop])
 
 AC_LANG(C++)
 
@@ -7,6 +7,7 @@ AC_CONFIG_SRCDIR([src/LLVM/Internal/Interop.chs])
 AC_CONFIG_FILES([llvm-data-interop.buildinfo])
 
 AC_PROG_CXX
+AX_CXX_COMPILE_STDCXX_11
 
 AC_ARG_WITH(compiler,
   [AS_HELP_STRING([--with-compiler],
@@ -26,7 +27,7 @@ AC_ARG_WITH(llvm_bindir,
   llvm_bindir="$withval",
   llvm_bindir="$llvm_prefix/bin")dnl
 
-AC_PATH_PROGS(llvm_config, [llvm-config-3.4 llvm-config-3.3 llvm-config-3.2 llvm-config-3.1 llvm-config],
+AC_PATH_PROGS(llvm_config, [llvm-config-3.5 llvm-config-3.4 llvm-config-3.3 llvm-config-3.2 llvm-config-3.1 llvm-config],
   [AC_MSG_ERROR(could not find llvm-config in $llvm_bindir)],
   ["$llvm_bindir:$PATH"])
 
@@ -71,7 +72,7 @@ x86_64-apple-darwin)
 esac
 
 llvm_version="`$llvm_config --version`"
-llvm_cppflags="`$llvm_config --cppflags`"
+llvm_cppflags="`$llvm_config --cxxflags`"
 llvm_includedir="`$llvm_config --includedir`"
 llvm_ldflags="`$llvm_config --ldflags`"
 
