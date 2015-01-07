@@ -5,3 +5,6 @@ config.log
 config.status
 llvm.buildinfo
 /llvm-data-interop.buildinfo
+/aclocal.m4
+/cabal.sandbox.config
+/.cabal-sandbox/
