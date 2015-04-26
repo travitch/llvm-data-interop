@@ -42,6 +42,7 @@ import Control.Monad.Error.Class
 import Control.Monad.EitherK
 import Control.Unification
 import Control.Unification.IntVar
+import qualified Control.Unification.Types as UT
 import Data.Foldable ( Foldable )
 import Data.Traversable ( Traversable )
 import Data.Set ( Set )
@@ -380,7 +381,7 @@ groupByBaseName = foldM addToMap mempty
       return $ HM.insertWith (++) (structBaseName name) [tp] m
 
 -- | Unify a list of terms
-unifies :: (Functor (e m), BindingMonad t v m, MonadTrans e, MonadError (UnificationFailure t v) (e m))
+unifies :: (Functor (e m), BindingMonad t v m, MonadTrans e, MonadError (UT.UFailure t v) (e m))
            => [UTerm t v] -> e m ()
 unifies [] = return ()
 unifies [_] = return ()

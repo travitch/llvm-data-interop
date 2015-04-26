@@ -33,7 +33,7 @@ library
                  hashable >= 1.1.2.0 && < 1.3,
                  llvm-base-types >= 0.4.0,
                  loch-th >= 0.2,
-                 unification-fd >= 0.8 && < 0.9,
+                 unification-fd >= 0.10 && < 0.11,
                  unordered-containers >= 0.2.1.0 && < 0.3,
                  hashtables,
                  vector,
